@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "target": "ES2019",
+        "lib": [
+            "ES2019"
+        ],
+        "types": [
+            "google-apps-script"
+        ],
+        "module": "None",
+        "noLib": false,
+        "isolatedModules": false,
+        "strict": true
+    },
+    "include": [
+        "./**/*.ts",
+        "../global.d.ts"
+    ]
+}
