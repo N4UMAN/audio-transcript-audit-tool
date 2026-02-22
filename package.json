@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "cp src/server/*.ts dist/ && cp global.d.ts dist/",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "push": "npx clasp push",
+    "deploy": "npm run build && npm run push",
+    "open": "npx clasp open"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
