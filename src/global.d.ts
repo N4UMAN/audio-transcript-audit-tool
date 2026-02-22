@@ -1,7 +1,8 @@
 import "@types/google-apps-script"
 
 declare global {
-    const google: typeof google
+    // const google: typeof google
+    var google: any;
 
     type IssueType = 'inconsistency' | 'guideline' | 'punctuation' | 'spelling';
 
@@ -36,7 +37,15 @@ declare global {
     interface EnvData {
         API_BASE_URL: string;
         DEBUG_MODE: boolean;
+        API_KEY: string,
         VERSION: string;
+    }
+
+    interface UndoHistoryItem {
+        cellAddress: string,
+        previousValue: string;
+        newValue: string;
+        timestamp: number;
     }
 
     interface ServerFunctions {

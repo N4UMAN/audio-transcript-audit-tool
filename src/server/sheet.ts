@@ -1,3 +1,4 @@
+// @ts-ignore
 function getSheetContext(): SheetContext {
     const sheet = SpreadsheetApp.getActiveSheet();
     const range = sheet.getDataRange();
@@ -11,7 +12,7 @@ function getSheetContext(): SheetContext {
 }
 
 
-
+// @ts-ignore
 function selectCell(cellAddress: string): void {
 
     const sheet = SpreadsheetApp.getActiveSheet();
@@ -20,6 +21,7 @@ function selectCell(cellAddress: string): void {
     sheet.setActiveRange(range);
 }
 
+// @ts-ignore
 function applyFix(cellAddress: string, fixedValue: string): void {
     const sheet = SpreadsheetApp.getActiveSheet();
     const range = sheet.getRange(cellAddress);
@@ -29,6 +31,7 @@ function applyFix(cellAddress: string, fixedValue: string): void {
     range.clearNote();
 }
 
+// @ts-ignore
 function applyFixAll(corrections: AuditCorrections[]) {
     const sheet = SpreadsheetApp.getActiveSheet();
 
@@ -41,7 +44,7 @@ function applyFixAll(corrections: AuditCorrections[]) {
     })
 }
 
-
+// @ts-ignore
 function highlightCells(corrections: AuditCorrections[]): void {
     const sheet = SpreadsheetApp.getActiveSheet();
 

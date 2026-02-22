@@ -4,13 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "lint": "eslint .",
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "postbuild": "cp src/server/*.ts dist/ && cp global.d.ts dist/",
-    "lint": "eslint .",
+    "build:server": "tsc --project src/server/tsconfig.json --outDir dist",
+    "build:all": "npm run build && npm run build:server && copy .\\appsscript.json dist\\",
     "preview": "vite preview",
     "push": "npx clasp push",
-    "deploy": "npm run build && npm run push",
+    "deploy": "npm run build:all && npm run push",
     "open": "npx clasp open"
   },
   "dependencies": {

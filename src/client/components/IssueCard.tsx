@@ -3,6 +3,7 @@ interface IssueCardProps {
     issue: AuditCorrections;
     isSelected: boolean;
     onClick: () => void;
+    onIgnore: () => void;
 }
 
 function getPillColor(type: string): string {
@@ -20,7 +21,8 @@ function getPillColor(type: string): string {
 export default function IssueCard({
     issue,
     isSelected,
-    onClick
+    onClick,
+    onIgnore
 }: IssueCardProps) {
     return (
         <div
@@ -63,6 +65,17 @@ export default function IssueCard({
             <div className="mt-2 bg-blue-50 p-2 rounded text-[11px] text-blue-800 border border-blue-100">
                 <strong>Fix:</strong> {issue.fixedValue}
             </div>
+
+            {/* Ignore issue */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();  // Prevent card selection
+                    onIgnore();
+                }}
+                className="mt-2 text-xs text-gray-500 hover:text-red-600 underline"
+            >
+                Ignore this issue
+            </button>
         </div>
     );
 };

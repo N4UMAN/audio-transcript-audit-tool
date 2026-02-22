@@ -10,7 +10,8 @@
         "module": "None",
         "noLib": false,
         "isolatedModules": false,
-        "strict": true
+        "strict": true,
+        "outDir": "../../dist",
     },
     "include": [
         "./**/*.ts",

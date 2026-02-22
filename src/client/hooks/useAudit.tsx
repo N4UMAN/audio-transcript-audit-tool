@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react'
 import { server } from '../utils/gas-bridge'
 
 interface useAuditConfig {
-    apiEndpoint: string
+    apiEndpoint: string,
+    apiKey: string
 }
 
 interface useAuditReturn {
@@ -13,13 +14,17 @@ interface useAuditReturn {
     selectCell: (cellAddress: string) => void;
     fixCurrent: () => Promise<void>;
     fixAll: () => Promise<void>;
+    ignoreCorrection: (cellAddress: string) => void;
     resetAudit: () => void;
+    undo: () => Promise<void>;
+    canUndo: boolean
 }
 
 export function useAudit(config: useAuditConfig): useAuditReturn {
     const [status, setStatus] = useState<AuditStatus>('idle');
     const [auditData, setAuditData] = useState<AuditData | null>(null);
     const [selectedCell, setSelectedCell] = useState<string | null>(null);
+    const [undoHistory, setUndoHistory] = useState<UndoHistoryItem[]>([]);
 
     //Check for cached audit and load it
     useEffect(() => {
@@ -56,7 +61,10 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
 
             const response = await fetch(config.apiEndpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    "X-API-KEY": config.apiKey,
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify(context)
             });
 
@@ -100,6 +108,14 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             throw new Error("Correction not found");
         }
 
+        const histoyItem: UndoHistoryItem = {
+            cellAddress: correction.cellAddress,
+            previousValue: correction.originalValue,
+            newValue: correction.fixedValue,
+            timestamp: Date.now()
+        };
+
+        setUndoHistory(prev => [...prev, histoyItem])
         await server.applyFix(correction.cellAddress, correction.fixedValue);
 
         //Remove cell from local state
@@ -134,6 +150,34 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
     }, [auditData])
 
 
+    //Ignore - Removes specific cell from corrections
+    const ignoreCorrection = useCallback((cellAddress: string): void => {
+        setAuditData((prev) => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                corrections: prev.corrections.filter(
+                    (c) => c.cellAddress !== cellAddress
+                )
+            };
+        });
+
+        if (selectedCell === cellAddress) {
+            setSelectedCell(null);
+        }
+    }, [selectedCell])
+
+    const undo = useCallback(async (): Promise<void> => {
+        if (undoHistory.length === 0) {
+            throw new Error('Nothing to undo');
+        }
+
+        const lastAction = undoHistory[undoHistory.length - 1];
+
+        await server.applyFix(lastAction.cellAddress, lastAction.previousValue);
+        setUndoHistory(prev => prev.slice(0, -1));
+    }, [undoHistory]);
+
     const resetAudit = useCallback((): void => {
         setStatus('idle');
         setSelectedCell(null);
@@ -147,6 +191,9 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
         selectCell,
         fixCurrent,
         fixAll,
-        resetAudit
+        ignoreCorrection,
+        resetAudit,
+        undo,
+        canUndo: undoHistory.length > 0
     }
 }

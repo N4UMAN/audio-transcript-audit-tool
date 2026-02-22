@@ -3,6 +3,7 @@ interface ActionBarProps {
     onFixCurrent: () => void;
     onFixAll: () => void;
     onUndo: () => void;
+    canUndo: boolean
     hasIssues: boolean;
 }
 
@@ -11,11 +12,12 @@ export default function ActionBar({
     onFixCurrent,
     onFixAll,
     onUndo,
+    canUndo,
     hasIssues
 }: ActionBarProps) {
 
     return (
-        <div className="fixed bottom-0 left-0 w-[350px] bg-white border-t p-3 space-y-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+        <div className="fixed bottom-0 left-0 w-[300px] bg-white border-t p-3 space-y-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
             <div className="flex gap-2">
                 <button
                     onClick={onFixCurrent}
@@ -37,6 +39,7 @@ export default function ActionBar({
 
                 <button
                     onClick={onUndo}
+                    disabled={!canUndo}
                     className="flex-1 bg-gray-100 text-gray-700 text-xs font-bold py-2.5 rounded-lg hover:bg-gray-200"
                 >
                     Undo

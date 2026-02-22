@@ -1,7 +1,7 @@
 //Cache and Storage
 const CACHE_KEY = 'LAST_AUDIT'
 
-
+// @ts-ignore
 function saveAuditToCache(data: string): void {
     try {
         PropertiesService.getDocumentProperties().setProperty(CACHE_KEY, data);
@@ -10,6 +10,7 @@ function saveAuditToCache(data: string): void {
     }
 }
 
+// @ts-ignore
 function getCachedAudit(): string | null {
     try {
         return PropertiesService.getDocumentProperties().getProperty(CACHE_KEY);

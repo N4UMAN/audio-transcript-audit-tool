@@ -5,6 +5,8 @@ import { useAudit } from './hooks/useAudit'
 import Toast from './components/Toast'
 import ActionBar from './components/ActionBar'
 import IssueCard from './components/IssueCard'
+import AuditReportIcon from './components/icons/AuditReportIcon'
+import Loader from './components/Loader'
 
 const App = () => {
     const [config, setConfig] = useState<EnvData | null>(null);
@@ -16,7 +18,7 @@ const App = () => {
     }, []);
 
     if (!config) {
-        return <div>loading settings...</div>
+        return <Loader message='Initializing...' />
     }
 
     return <AuditManager config={config} />
@@ -31,8 +33,11 @@ const AuditManager = ({ config }: { config: EnvData }) => {
         selectCell,
         fixCurrent,
         fixAll,
-        resetAudit
-    } = useAudit({ apiEndpoint: config.API_BASE_URL });
+        ignoreCorrection,
+        resetAudit,
+        undo,
+        canUndo
+    } = useAudit({ apiEndpoint: config.API_BASE_URL, apiKey: config.API_KEY });
 
     const { toast, showToast } = useToast();
 
@@ -68,29 +73,23 @@ const AuditManager = ({ config }: { config: EnvData }) => {
     }
 
 
-    const handleUndo = (): void => {
-        showToast('Undo not yet implemented')
+    const handleUndo = async (): Promise<void> => {
+        try {
+            await undo()
+            showToast('Undo changes')
+        } catch (error) {
+            showToast(String(error));
+        }
     }
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50 text-gray-800 overflow-hidden w-[350px]">
+        <div className="flex flex-col h-screen bg-gray-50 text-gray-800 overflow-hidden w-[300px]">
             {/* Header */}
             <header className="bg-white border-b px-4 py-3 flex justify-between items-center shrink-0">
                 <h1 className="font-bold text-lg flex items-center gap-2">
-                    <svg
-                        className="text-blue-600"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <path d="m12 14 4-4" />
-                        <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-                        <path d="m9.01 10.5-1.42 1.42a2 2 0 1 0 2.83 2.83l6.06-6.06a2 2 0 1 0-2.83-2.83l-1.42 1.42" />
-                    </svg>
-                    Audit Pro
+
+                    <AuditReportIcon />
+                    SheetScan
                 </h1>
 
                 <button
@@ -150,12 +149,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
 
                 {/* Auditing State */}
                 {status === 'auditing' && (
-                    <div className="flex flex-col items-center justify-center h-full space-y-4">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-                        <p className="text-sm font-medium text-gray-600">
-                            LLM is analyzing transcript...
-                        </p>
-                    </div>
+                    <Loader message='Transcript analysis in progress...' />
                 )}
 
                 {/* Ready State - Show Issues */}
@@ -178,6 +172,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
                                     issue={issue}
                                     isSelected={selectedCell === issue.cellAddress}
                                     onClick={() => selectCell(issue.cellAddress)}
+                                    onIgnore={() => ignoreCorrection(issue.cellAddress)}
                                 />
                             ))
                         )}
@@ -192,6 +187,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
                     onFixCurrent={handleFixCurrent}
                     onFixAll={handleFixAll}
                     onUndo={handleUndo}
+                    canUndo={canUndo}
                     hasIssues={(auditData?.corrections.length ?? 0) > 0}
                 />
             )}

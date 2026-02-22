@@ -6,11 +6,6 @@
         "userSymbol": "Sheets",
         "version": "v4",
         "serviceId": "sheets"
-      },
-      {
-        "userSymbol": "VertexAI",
-        "version": "v1",
-        "serviceId": "aiplatform"
       }
     ],
     "libraries": [

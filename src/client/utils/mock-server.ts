@@ -51,8 +51,9 @@ export const mockServer: ServerFunctions = {
 
     async getClientSideVars() {
         return {
-            API_BASE_URL: '/',
+            API_BASE_URL: 'http://127.0.0.1:8000/audit',
             DEBUG_MODE: true,
+            API_KEY: '',
             VERSION: '0.0.0'
         }
     }
