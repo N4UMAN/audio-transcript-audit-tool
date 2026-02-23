@@ -3,16 +3,25 @@ from app.config import settings
 import json
 from .utils import validate_api_key
 from .schema import AuditPayload, AuditResponse
+from .services.deterministic_parser import run_deterministic_audit
 
 router = APIRouter(dependencies=[Depends(validate_api_key)])
 
 
 @router.post("/audit", response_model=AuditResponse)
-async def generate_chat(payload: AuditPayload, request: Request):
+async def generate_chat(payload: AuditPayload, request: Request, skipLLM: bool = True):
     groq_client = request.app.state.groq
     system_prompt = request.app.state.prompt_cache.get("system_prompt")
 
     data = payload.values
+
+    corrections = run_deterministic_audit(data)
+
+    if skipLLM:
+        return {
+            "sheetName": "null",
+            "corrections": corrections
+        }
 
     prompt = f"{system_prompt}\n{data}"
     try:
