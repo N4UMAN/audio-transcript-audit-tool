@@ -1,58 +1,49 @@
 interface ActionBarProps {
-    selectedCell: string | null;
-    onFixCurrent: () => void;
     onFixAll: () => void;
     onUndo: () => void;
+    onRedo: () => void
+    canRedo: boolean
     canUndo: boolean
-    hasIssues: boolean;
+    issueCount: number;
 }
 
 export default function ActionBar({
-    selectedCell,
-    onFixCurrent,
-    onFixAll,
+    onFixAll: onApplyAll,
     onUndo,
+    onRedo,
+    canRedo,
     canUndo,
-    hasIssues
+    issueCount
 }: ActionBarProps) {
 
     return (
-        <div className="fixed bottom-0 left-0 w-[300px] bg-white border-t p-3 space-y-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+        <footer className="bg-white border-t border-gray-200 p-3 flex flex-col gap-2">
+            {/* History Controls */}
             <div className="flex gap-2">
-                <button
-                    onClick={onFixCurrent}
-                    className="flex-[2] bg-blue-600 text-white text-xs font-bold py-2.5 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!selectedCell}
-                >
-                    <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                    >
-                        <path d="M20 6 9 17 4 12" />
-                    </svg>
-                    {selectedCell ? `Fix ${selectedCell}` : 'Select an Issue'}
-                </button>
-
                 <button
                     onClick={onUndo}
                     disabled={!canUndo}
-                    className="flex-1 bg-gray-100 text-gray-700 text-xs font-bold py-2.5 rounded-lg hover:bg-gray-200"
+                    className="flex-1 text-[11px] font-medium px-2 py-2 rounded bg-gray-50 border border-gray-200 text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                     Undo
                 </button>
+                <button
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    className="flex-1 text-[11px] font-medium px-2 py-2 rounded bg-gray-50 border border-gray-200 text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    Redo
+                </button>
             </div>
 
+            {/* Apply All */}
             <button
-                onClick={onFixAll}
-                className="w-full bg-green-50 text-green-700 border border-green-200 text-[11px] font-bold py-2 rounded-lg hover:bg-green-100 uppercase tracking-tight disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!hasIssues}
+                onClick={onApplyAll}
+                disabled={issueCount === 0}
+                className="w-full bg-gray-900 hover:bg-black text-white text-[11px] font-semibold px-2 py-2.5 rounded flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-                Apply All Recommended Fixes
+                Resolve All ({issueCount})
             </button>
-        </div>
+        </footer>
     );
 };

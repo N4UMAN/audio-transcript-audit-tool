@@ -14,21 +14,25 @@ interface useAuditReturn {
     selectCell: (cellAddress: string) => void;
     fixCurrent: () => Promise<void>;
     fixAll: () => Promise<void>;
-    ignoreCorrection: (cellAddress: string) => void;
-    resetAudit: () => void;
+    ignoreCorrection: (cellAddress: string) => Promise<void>;
+    resetAudit: () => Promise<void>;
     undo: () => Promise<void>;
-    canUndo: boolean
+    redo: () => Promise<void>;
+    canRedo: boolean;
+    canUndo: boolean;
 }
 
 export function useAudit(config: useAuditConfig): useAuditReturn {
     const [status, setStatus] = useState<AuditStatus>('idle');
     const [auditData, setAuditData] = useState<AuditData | null>(null);
     const [selectedCell, setSelectedCell] = useState<string | null>(null);
-    const [undoHistory, setUndoHistory] = useState<UndoHistoryItem[]>([]);
+    const [undoHistory, setUndoHistory] = useState<AuditCorrections[][]>([]);
+    const [redoHistory, setRedoHistory] = useState<AuditCorrections[][]>([]);
 
     //Check for cached audit and load it
     useEffect(() => {
         const loadCachedAudit = async (): Promise<void> => {
+            setStatus('restoring')
             try {
                 const cached = await server.getCachedAudit();
 
@@ -108,14 +112,12 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             throw new Error("Correction not found");
         }
 
-        const histoyItem: UndoHistoryItem = {
-            cellAddress: correction.cellAddress,
-            previousValue: correction.originalValue,
-            newValue: correction.fixedValue,
-            timestamp: Date.now()
-        };
+        const histoyItem: AuditCorrections = correction;
 
-        setUndoHistory(prev => [...prev, histoyItem])
+        //update undo history
+        setUndoHistory(prev => [...prev, [histoyItem]])
+        setRedoHistory([]); //clear redo history since it is out of date
+
         await server.applyFix(correction.cellAddress, correction.fixedValue);
 
         //Remove cell from local state
@@ -138,8 +140,11 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             return;
         }
 
-        await server.applyFixAll(auditData.corrections);
+        const batch = [...auditData.corrections];
 
+        await server.applyFixAll(batch);
+
+        setUndoHistory((prev) => [...prev, batch]);
         setAuditData((prev) => {
             if (!prev) return null;
             return {
@@ -151,7 +156,13 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
 
 
     //Ignore - Removes specific cell from corrections
-    const ignoreCorrection = useCallback((cellAddress: string): void => {
+    const ignoreCorrection = useCallback(async (cellAddress: string): Promise<void> => {
+        const correction = auditData?.corrections.find(c => c.cellAddress === cellAddress);
+        if (!correction) return;
+
+
+        await server.removeCellHighlights([cellAddress]);
+
         setAuditData((prev) => {
             if (!prev) return null;
             return {
@@ -161,6 +172,9 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
                 )
             };
         });
+
+        //Add to undo history
+        setUndoHistory(prev => [...prev, [correction]]);
 
         if (selectedCell === cellAddress) {
             setSelectedCell(null);
@@ -172,15 +186,78 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             throw new Error('Nothing to undo');
         }
 
-        const lastAction = undoHistory[undoHistory.length - 1];
+        //Get the last item from history
+        const lastBatch = undoHistory[undoHistory.length - 1];
 
-        await server.applyFix(lastAction.cellAddress, lastAction.previousValue);
+        try {
+
+            Promise.all(lastBatch.map(item =>
+                server.applyUndo(item.cellAddress, item.originalValue)
+            ));
+
+            //Apply highlight
+            await server.highlightCells(lastBatch);
+
+            //Update local audit data to put item back
+            setAuditData(prev => prev ? {
+                ...prev,
+                corrections: [...prev.corrections, ...lastBatch]
+            } : null);
+
+        } catch (error) {
+            console.error("Undo failed:", error);
+        }
+
+        //Remove from undo history
         setUndoHistory(prev => prev.slice(0, -1));
+        setRedoHistory(prev => [...prev, lastBatch]);
+
     }, [undoHistory]);
 
-    const resetAudit = useCallback((): void => {
+    const redo = useCallback(async (): Promise<void> => {
+        if (redoHistory.length === 0) return;
+
+        //Get last batch of changes from Redo
+        const lastRedoBatch = redoHistory[redoHistory.length - 1];
+
+        try {
+
+            await Promise.all(lastRedoBatch.map(item =>
+                server.applyFix(item.cellAddress, item.fixedValue)
+            ));
+
+            setUndoHistory(prev => [...prev, lastRedoBatch]);
+
+            setRedoHistory(prev => prev.slice(0, -1));
+
+            setAuditData(prev => {
+                if (!prev) return null;
+                const addressToRemove = lastRedoBatch.map(c => c.cellAddress);
+                return {
+                    ...prev,
+                    corrections: prev.corrections.filter(c => !addressToRemove.includes(c.cellAddress))
+                };
+            });
+
+        } catch (error) {
+            console.error("Redo failed:", error);
+        }
+    }, [redoHistory]);
+
+    const resetAudit = useCallback(async (): Promise<void> => {
+        if (auditData?.corrections.length) {
+            const addresses = auditData.corrections.map(c => c.cellAddress);
+
+            await server.removeCellHighlights(addresses);
+        }
         setStatus('idle');
+        setAuditData(null);
+        setUndoHistory([]);
         setSelectedCell(null);
+        setSelectedCell(null);
+
+        //Clear cache
+        await server.saveAuditToCache("");
     }, []);
 
     return {
@@ -194,6 +271,8 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
         ignoreCorrection,
         resetAudit,
         undo,
+        redo,
+        canRedo: redoHistory.length > 0,
         canUndo: undoHistory.length > 0
     }
 }

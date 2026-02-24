@@ -49,6 +49,20 @@ export const mockServer: ServerFunctions = {
         console.log('Mock: Saved to cache', data);
     },
 
+    async applyUndo(cellAddress: string, originalValue: string) {
+        console.log('Mock: Undo Applied ', 'background: #fce8e6; color: #b91c1c; font-weight: bold;', {
+            cellAddress,
+            restoredValue: originalValue
+        });
+        return new Promise((resolve) => setTimeout(resolve, 400));
+    },
+
+    async removeCellHighlights(cellAddresses: string[]) {
+        console.log('Mock: Highlights Removed ', 'background: #f3f4f6; color: #374151; font-weight: bold;', {
+            clearedCells: cellAddresses
+        });
+        return new Promise((resolve) => setTimeout(resolve, 200));
+    },
     async getClientSideVars() {
         return {
             API_BASE_URL: 'http://127.0.0.1:8000/audit',

@@ -5,7 +5,7 @@ import { useAudit } from './hooks/useAudit'
 import Toast from './components/Toast'
 import ActionBar from './components/ActionBar'
 import IssueCard from './components/IssueCard'
-import AuditReportIcon from './components/icons/AuditReportIcon'
+import { Header } from './components/Header'
 import Loader from './components/Loader'
 
 const App = () => {
@@ -18,7 +18,11 @@ const App = () => {
     }, []);
 
     if (!config) {
-        return <Loader message='Initializing...' />
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-white/50">
+                <Loader message='Initializing...' />
+            </div>
+        )
     }
 
     return <AuditManager config={config} />
@@ -36,6 +40,8 @@ const AuditManager = ({ config }: { config: EnvData }) => {
         ignoreCorrection,
         resetAudit,
         undo,
+        redo,
+        canRedo,
         canUndo
     } = useAudit({ apiEndpoint: config.API_BASE_URL, apiKey: config.API_KEY });
 
@@ -76,43 +82,34 @@ const AuditManager = ({ config }: { config: EnvData }) => {
     const handleUndo = async (): Promise<void> => {
         try {
             await undo()
-            showToast('Undo changes')
+            showToast('Undo applied')
         } catch (error) {
             showToast(String(error));
         }
     }
-
+    const handleRedo = async (): Promise<void> => {
+        try {
+            await redo()
+            showToast('Redo applied')
+        } catch (error) {
+            showToast(String(error));
+        }
+    }
+    if (status === 'restoring') {
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-white">
+                <Loader message='Fetching last audit...' />
+            </div>
+        )
+    }
     return (
         <div className="flex flex-col h-screen bg-gray-50 text-gray-800 overflow-hidden w-[300px]">
             {/* Header */}
-            <header className="bg-white border-b px-4 py-3 flex justify-between items-center shrink-0">
-                <h1 className="font-bold text-lg flex items-center gap-2">
-
-                    <AuditReportIcon />
-                    SheetScan
-                </h1>
-
-                <button
-                    onClick={resetAudit}
-                    className="text-gray-400 hover:text-gray-600"
-                    title="Reset"
-                >
-                    <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                        <path d="M3 3v5h5" />
-                    </svg>
-                </button>
-            </header>
+            <Header onRefresh={resetAudit} />
 
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto p-4 pb-32">
+
                 {/* Idle State */}
                 {status === 'idle' && (
                     <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
@@ -171,6 +168,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
                                     key={`${issue.cellAddress}-${idx}`}
                                     issue={issue}
                                     isSelected={selectedCell === issue.cellAddress}
+                                    onFix={handleFixCurrent}
                                     onClick={() => selectCell(issue.cellAddress)}
                                     onIgnore={() => ignoreCorrection(issue.cellAddress)}
                                 />
@@ -183,12 +181,12 @@ const AuditManager = ({ config }: { config: EnvData }) => {
             {/* Action Bar - Only show when ready */}
             {status === 'ready' && (
                 <ActionBar
-                    selectedCell={selectedCell}
-                    onFixCurrent={handleFixCurrent}
                     onFixAll={handleFixAll}
                     onUndo={handleUndo}
+                    onRedo={handleRedo}
                     canUndo={canUndo}
-                    hasIssues={(auditData?.corrections.length ?? 0) > 0}
+                    canRedo={canRedo}
+                    issueCount={auditData?.corrections.length || 0}
                 />
             )}
 

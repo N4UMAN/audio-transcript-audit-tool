@@ -6,7 +6,7 @@ declare global {
 
     type IssueType = 'inconsistency' | 'guideline' | 'punctuation' | 'spelling';
 
-    type AuditStatus = 'idle' | 'auditing' | 'ready';
+    type AuditStatus = 'idle' | 'restoring' | 'auditing' | 'ready';
 
 
     interface SheetContext {
@@ -41,12 +41,6 @@ declare global {
         VERSION: string;
     }
 
-    interface UndoHistoryItem {
-        cellAddress: string,
-        previousValue: string;
-        newValue: string;
-        timestamp: number;
-    }
 
     interface ServerFunctions {
         getSheetContext(): Promise<SheetContext>,
@@ -54,8 +48,10 @@ declare global {
         applyFix(cellAddress: string, fixedValue: string): Promise<void>;
         applyFixAll(corrections: AuditCorrections[]): Promise<void>;
         highlightCells(corrections: AuditCorrections[]): Promise<void>;
+        removeCellHighlights(cellAddresses: string[]): Promise<void>;
         getCachedAudit(): Promise<string | null>;
         saveAuditToCache(data: string): Promise<void>;
+        applyUndo(cellAddress: string, originalValue: string): Promise<void>
         getClientSideVars(): Promise<EnvData>
     }
 }
