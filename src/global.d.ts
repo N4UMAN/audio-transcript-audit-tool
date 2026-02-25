@@ -41,6 +41,12 @@ declare global {
         VERSION: string;
     }
 
+    interface HistoryAction {
+        id: string;
+        type: 'FIX' | 'IGNORE';
+        items: AuditCorrections[];
+    }
+
 
     interface ServerFunctions {
         getSheetContext(): Promise<SheetContext>,
@@ -50,7 +56,7 @@ declare global {
         highlightCells(corrections: AuditCorrections[]): Promise<void>;
         removeCellHighlights(cellAddresses: string[]): Promise<void>;
         getCachedAudit(): Promise<string | null>;
-        saveAuditToCache(data: string): Promise<void>;
+        saveAuditToCache(dataObj: AuditData | null): Promise<void>;
         applyUndo(cellAddress: string, originalValue: string): Promise<void>
         getClientSideVars(): Promise<EnvData>
     }

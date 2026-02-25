@@ -40,9 +40,12 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
                     const data: AuditData = JSON.parse(cached);
                     setAuditData(data);
                     setStatus('ready');
+                } else {
+                    setStatus('idle');
                 }
             } catch (error) {
-                console.warn("No cached audit found");
+                console.error("Cache recovery failed:", error);
+                setStatus('idle');
             }
         }
 
@@ -80,7 +83,7 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
 
             //3: Apply highlights and cache data
             await server.highlightCells(data.corrections);
-            await server.saveAuditToCache(JSON.stringify(data));
+            await server.saveAuditToCache(data);
 
             setAuditData(data);
             setStatus('ready');
@@ -253,11 +256,12 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
         setStatus('idle');
         setAuditData(null);
         setUndoHistory([]);
+        setRedoHistory([]);
         setSelectedCell(null);
         setSelectedCell(null);
 
         //Clear cache
-        await server.saveAuditToCache("");
+        await server.saveAuditToCache(null);
     }, []);
 
     return {

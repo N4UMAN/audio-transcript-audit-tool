@@ -7,19 +7,19 @@ import ActionBar from './components/ActionBar'
 import IssueCard from './components/IssueCard'
 import { Header } from './components/Header'
 import Loader from './components/Loader'
-
+import FileCheckIcon from './components/icons/FileCheckIcon'
 const App = () => {
     const [config, setConfig] = useState<EnvData | null>(null);
 
     useEffect(() => {
         server.getClientSideVars()
             .then((data) => setConfig(data))
-            .catch((error) => console.log("Failed to load environment  variables:", error));
+            .catch((error) => console.log("Failed to load environment variables:", error));
     }, []);
 
     if (!config) {
         return (
-            <div className="fixed inset-0 flex items-center justify-center bg-white/50">
+            <div className="flex items-center justify-center h-screen bg-gray-50">
                 <Loader message='Initializing...' />
             </div>
         )
@@ -47,8 +47,6 @@ const AuditManager = ({ config }: { config: EnvData }) => {
 
     const { toast, showToast } = useToast();
 
-
-
     const handleStartAudit = async (): Promise<void> => {
         try {
             await startAudit();
@@ -58,7 +56,6 @@ const AuditManager = ({ config }: { config: EnvData }) => {
             showToast(`Error: ${message}`);
         }
     }
-
 
     const handleFixCurrent = async (): Promise<void> => {
         try {
@@ -73,11 +70,11 @@ const AuditManager = ({ config }: { config: EnvData }) => {
         try {
             showToast('Applying all fixes...');
             await fixAll();
+            showToast('All issues resolved!');
         } catch (error) {
-            showToast('Failed to apply fixes');
+            showToast(`Failed to apply fixes`);
         }
     }
-
 
     const handleUndo = async (): Promise<void> => {
         try {
@@ -87,6 +84,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
             showToast(String(error));
         }
     }
+
     const handleRedo = async (): Promise<void> => {
         try {
             await redo()
@@ -95,72 +93,114 @@ const AuditManager = ({ config }: { config: EnvData }) => {
             showToast(String(error));
         }
     }
+
     if (status === 'restoring') {
         return (
-            <div className="fixed inset-0 flex items-center justify-center bg-white">
-                <Loader message='Fetching last audit...' />
+            <div className="flex items-center justify-center h-screen bg-gray-50">
+                <Loader message='Just a moment...' />
             </div>
         )
     }
+
     return (
-        <div className="flex flex-col h-screen bg-gray-50 text-gray-800 overflow-hidden w-[300px]">
+        <div className="flex flex-col h-screen bg-gray-50 overflow-hidden w-[300px]">
             {/* Header */}
             <Header onRefresh={resetAudit} />
 
             {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto p-4 pb-32">
-
-                {/* Idle State */}
+            <main className="flex-1 overflow-y-auto p-3">
+                {/* Idle State - Final Monotone Utility */}
                 {status === 'idle' && (
-                    <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                        <div className="bg-blue-50 p-6 rounded-full">
-                            <svg
-                                width="48"
-                                height="48"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="#2563eb"
-                                strokeWidth="1.5"
-                            >
-                                <rect width="18" height="18" x="3" y="3" rx="2" />
-                                <path d="M3 9h18" />
-                                <path d="M9 3v18" />
-                            </svg>
+                    <div className="relative flex flex-col h-full bg-white overflow-hidden border border-gray-100">
+
+                        {/* Monotone Structural Accents */}
+                        <div className="absolute top-[-5%] right-[-5%] w-40 h-40 rounded-full border border-gray-50 animate-[spin_60s_linear_infinite]" />
+                        <div className="absolute top-[12%] left-[-15px] w-12 h-12 bg-gray-900 rotate-12 opacity-[0.05]" />
+                        <div className="absolute bottom-[25%] right-[-10px] w-16 h-16 border-2 border-gray-100 rotate-45" />
+
+                        <div className="relative z-10 flex flex-col h-full p-6">
+
+                            {/* 1. Status Header */}
+                            <header className="mb-14">
+                                <div className="flex items-center gap-2 mb-2">
+                                    {/* <div className="w-1 h-3 bg-gray-900" /> */}
+                                    <span className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-[0.3em]">
+                                        System // Ready
+                                    </span>
+                                </div>
+                                <h1 className="text-3xl font-black text-gray-900 leading-[0.85] tracking-tighter uppercase flex flex-col">
+                                    <span>Sheet</span>
+                                    <span className="flex items-center gap-2">
+                                        <FileCheckIcon className="w-8 h-8 text-gray-500" strokeWidth="2.5" />
+                                        Scan
+                                    </span>
+                                </h1>
+                            </header>
+
+                            {/* 2. Functional Description */}
+                            <div className="flex-1 border-l border-gray-100 pl-5 ml-1">
+                                <div className="space-y-8">
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Process</p>
+                                        <p className="text-sm text-gray-500 leading-relaxed font-medium">
+                                            Automatically parses the active Google Sheet to identify structural inconsistencies, formatting anomalies, and empty data nodes.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-900 font-mono text-xs font-bold">//</span>
+                                            <p className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Execution</p>
+                                        </div>
+                                        <p className="text-xs text-gray-400 leading-snug">
+                                            Click start to begin the global diagnostic. Issues will be compiled into a fixable queue.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 3. Rounded Bottom Button */}
+                            <div className="mt-auto">
+                                <button
+                                    onClick={handleStartAudit}
+                                    className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all active:scale-[0.97] flex items-center justify-center gap-3 shadow-2xl shadow-gray-200"
+                                >
+                                    Start Audit
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
 
-                        <div>
-                            <h2 className="text-xl font-semibold">Ready to Audit</h2>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Analyze your transcript for inconsistencies.
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={handleStartAudit}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg shadow-sm transition-all"
-                        >
-                            Audit Current Sheet
-                        </button>
+                        {/* Technical Grid Overlay */}
+                        <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
+                            style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
                     </div>
                 )}
 
                 {/* Auditing State */}
                 {status === 'auditing' && (
-                    <Loader message='Transcript analysis in progress...' />
+                    <div className="flex items-center justify-center h-full">
+                        <Loader message='Transcript analysis in progress...' />
+                    </div>
                 )}
 
                 {/* Ready State - Show Issues */}
                 {status === 'ready' && auditData && (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                Issues ({auditData.corrections.length})
-                            </span>
+                    <div className="space-y-0 pb-40">
+                        <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2.5 px-0.5">
+                            Audit Queue ({auditData.corrections.length} {auditData.corrections.length === 1 ? 'Issue' : 'Issues'})
                         </div>
 
                         {auditData.corrections.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400 text-sm">
-                                No issues found!
+                            <div className="flex flex-col items-center justify-center py-20 text-center">
+                                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
+                                    <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <p className="text-sm text-gray-400 font-medium">No issues found</p>
                             </div>
                         ) : (
                             auditData.corrections.map((issue, idx) => (
@@ -195,6 +235,5 @@ const AuditManager = ({ config }: { config: EnvData }) => {
         </div>
     );
 };
-
 
 export default App

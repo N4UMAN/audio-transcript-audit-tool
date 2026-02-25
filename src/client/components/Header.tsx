@@ -15,7 +15,7 @@ export const Header = ({ onRefresh }: HeaderProps) => {
 
             <button
                 onClick={onRefresh}
-                className="p-1.5 rounded text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                className="p-1.5 rounded text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
                 title="Refresh Audit"
             >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">

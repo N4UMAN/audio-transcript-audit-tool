@@ -52,7 +52,7 @@ function applyFixAll(corrections: AuditCorrections[]) {
     const sheet = SpreadsheetApp.getActiveSheet();
     const dataRange = sheet.getDataRange();
 
-    const values = dataRange.getValue();
+    const values = dataRange.getValues();
 
     corrections.forEach((correction) => {
         const { row, col } = a1ToIndex(correction.cellAddress);
@@ -61,17 +61,16 @@ function applyFixAll(corrections: AuditCorrections[]) {
         if (values[row] !== undefined && values[row][col] !== undefined) {
             values[row][col] = correction.fixedValue;
         }
+    });
+    dataRange.setValues(values);
 
-        dataRange.setValues(values);
+    const addresses = corrections.map(c => c.cellAddress);
+    const rangeList = sheet.getRangeList(addresses);
 
-        const addresses = corrections.map(c => c.cellAddress);
-        const rangeList = sheet.getRangeList(addresses);
+    rangeList.setBackground(null);
+    rangeList.clearNote();
 
-        rangeList.setBackground(null);
-        rangeList.clearNote();
-
-        SpreadsheetApp.flush();
-    })
+    SpreadsheetApp.flush();
 }
 
 // @ts-ignore
@@ -91,14 +90,13 @@ function highlightCells(corrections: AuditCorrections[]): void {
         if (notes[row] !== undefined && notes[row][col] !== undefined) {
             notes[row][col] = `ISSUE ${correction.issue}\n\nFIX: ${correction.fixedValue}`;
         }
+    });
+    dataRange.setNotes(notes);
 
-        dataRange.setNotes(notes);
+    const addresses = corrections.map(c => c.cellAddress);
+    sheet.getRangeList(addresses).setBackground('#fce8e6');
 
-        const addresses = corrections.map(c => c.cellAddress);
-        sheet.getRangeList(addresses).setBackground('#fce8e6');
-
-        SpreadsheetApp.flush();
-    })
+    SpreadsheetApp.flush();
 }
 
 //@ts-ignore
@@ -132,4 +130,4 @@ function a1ToIndex(a1: string) {
     return { row, col: col - 1 };
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------

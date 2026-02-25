@@ -2,11 +2,11 @@
 const CACHE_KEY = 'LAST_AUDIT'
 
 // @ts-ignore
-function saveAuditToCache(data: string): void {
+function saveAuditToCache(dataObj): void {
     try {
-        PropertiesService.getDocumentProperties().setProperty(CACHE_KEY, data);
+        PropertiesService.getDocumentProperties().setProperty(CACHE_KEY, JSON.stringify(dataObj));
     } catch (error) {
-        console.error("Failed to save cache");
+        console.error("Cache Save Error:", error);
     }
 }
 
