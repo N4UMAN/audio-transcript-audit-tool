@@ -8,6 +8,7 @@ import IssueCard from './components/IssueCard'
 import { Header } from './components/Header'
 import Loader from './components/Loader'
 import FileCheckIcon from './components/icons/FileCheckIcon'
+
 const App = () => {
     const [config, setConfig] = useState<EnvData | null>(null);
 
@@ -37,7 +38,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
         selectCell,
         fixCurrent,
         fixAll,
-        ignoreCorrection,
+        handleIgnore,
         resetAudit,
         undo,
         redo,
@@ -46,7 +47,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
     } = useAudit({ apiEndpoint: config.API_BASE_URL, apiKey: config.API_KEY });
 
     const { toast, showToast } = useToast();
-
+    const [btnState, setBtnState] = useState<BtnStates>('ready');
     const handleStartAudit = async (): Promise<void> => {
         try {
             await startAudit();
@@ -68,29 +69,38 @@ const AuditManager = ({ config }: { config: EnvData }) => {
 
     const handleFixAll = async (): Promise<void> => {
         try {
+            setBtnState('fixing');
             showToast('Applying all fixes...');
             await fixAll();
             showToast('All issues resolved!');
         } catch (error) {
             showToast(`Failed to apply fixes`);
+        } finally {
+            setBtnState('ready');
         }
     }
 
     const handleUndo = async (): Promise<void> => {
         try {
+            setBtnState('undo');
             await undo()
             showToast('Undo applied')
         } catch (error) {
             showToast(String(error));
+        } finally {
+            setBtnState('ready');
         }
     }
 
     const handleRedo = async (): Promise<void> => {
         try {
+            setBtnState('redo');
             await redo()
             showToast('Redo applied')
         } catch (error) {
             showToast(String(error));
+        } finally {
+            setBtnState('ready');
         }
     }
 
@@ -163,8 +173,9 @@ const AuditManager = ({ config }: { config: EnvData }) => {
                             <div className="mt-auto">
                                 <button
                                     onClick={handleStartAudit}
-                                    className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all active:scale-[0.97] flex items-center justify-center gap-3 shadow-2xl shadow-gray-200"
+                                    className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all active:scale-[0.97] flex items-center justify-center gap-3 shadow-2xl shadow-gray-200 cursor-pointer transform hover:-translate-y-[1px]"
                                 >
+
                                     Start Audit
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -210,7 +221,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
                                     isSelected={selectedCell === issue.cellAddress}
                                     onFix={handleFixCurrent}
                                     onClick={() => selectCell(issue.cellAddress)}
-                                    onIgnore={() => ignoreCorrection(issue.cellAddress)}
+                                    onIgnore={() => handleIgnore(issue)}
                                 />
                             ))
                         )}
@@ -221,6 +232,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
             {/* Action Bar - Only show when ready */}
             {status === 'ready' && (
                 <ActionBar
+                    state={btnState}
                     onFixAll={handleFixAll}
                     onUndo={handleUndo}
                     onRedo={handleRedo}

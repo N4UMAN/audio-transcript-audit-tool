@@ -7,11 +7,14 @@ declare global {
     type IssueType = 'inconsistency' | 'guideline' | 'punctuation' | 'spelling';
 
     type AuditStatus = 'idle' | 'restoring' | 'auditing' | 'ready';
+    type BtnStates = 'ready' | 'undo' | 'redo' | 'fixing'
 
 
     interface SheetContext {
         values: any[][];
         sheetName: string;
+        headers: any;
+        rowCount: number
         id: string;
     }
 
@@ -47,17 +50,24 @@ declare global {
         items: AuditCorrections[];
     }
 
+    interface AuditCache {
+        data: AuditData;
+        versionAtTimeOfAudi: string
+    }
 
     interface ServerFunctions {
-        getSheetContext(): Promise<SheetContext>,
+        getSheetContext(): Promise<string>;
+        getSheetVersion(): Promise<string>;
+        incrementSheetVersion(): Promise<string>
         selectCell(cellAddress: string): Promise<void>;
         applyFix(cellAddress: string, fixedValue: string): Promise<void>;
         applyFixAll(corrections: AuditCorrections[]): Promise<void>;
         highlightCells(corrections: AuditCorrections[]): Promise<void>;
         removeCellHighlights(cellAddresses: string[]): Promise<void>;
         getCachedAudit(): Promise<string | null>;
-        saveAuditToCache(dataObj: AuditData | null): Promise<void>;
-        applyUndo(cellAddress: string, originalValue: string): Promise<void>
-        getClientSideVars(): Promise<EnvData>
+        saveAuditToCache(data: AuditData | null, version?: string): Promise<void>;
+        applyUndo(cellAddress: string, originalValue: string): Promise<void>;
+        getClientSideVars(): Promise<EnvData>;
+        applyHistoryAction(items: AuditCorrections[], actionType: string, direction: string): Promise<void>
     }
 }

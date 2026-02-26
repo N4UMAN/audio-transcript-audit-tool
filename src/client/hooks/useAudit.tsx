@@ -1,5 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { server } from '../utils/gas-bridge'
+import useHistory from './useHistory'
+import useVersioning from './useVersioning'
+import { useToast } from './useToast'
 
 interface useAuditConfig {
     apiEndpoint: string,
@@ -14,7 +17,7 @@ interface useAuditReturn {
     selectCell: (cellAddress: string) => void;
     fixCurrent: () => Promise<void>;
     fixAll: () => Promise<void>;
-    ignoreCorrection: (cellAddress: string) => Promise<void>;
+    handleIgnore: (item: AuditCorrections) => Promise<void>;
     resetAudit: () => Promise<void>;
     undo: () => Promise<void>;
     redo: () => Promise<void>;
@@ -22,31 +25,120 @@ interface useAuditReturn {
     canUndo: boolean;
 }
 
+const REQUIRED_HEADERS = [
+    "segment",
+    "speaker",
+    "start time",
+    "end time",
+    "transcript",
+    "non-speech events",
+    "emotions",
+    "language",
+    "locale",
+    "accent"
+]
+const MIN_DATA_ROWS = 2
+
 export function useAudit(config: useAuditConfig): useAuditReturn {
     const [status, setStatus] = useState<AuditStatus>('idle');
     const [auditData, setAuditData] = useState<AuditData | null>(null);
     const [selectedCell, setSelectedCell] = useState<string | null>(null);
-    const [undoHistory, setUndoHistory] = useState<AuditCorrections[][]>([]);
-    const [redoHistory, setRedoHistory] = useState<AuditCorrections[][]>([]);
+
+
+    const { showToast } = useToast();
+
+    //Helpers
+    const removeFromSidebar = useCallback((itemsToRemove: AuditCorrections[]) => {
+        const addressesToRemove = new Set(itemsToRemove.map(i => i.cellAddress));
+        setAuditData(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                corrections: prev.corrections.filter(c => !addressesToRemove.has(c.cellAddress))
+            };
+        });
+    }, []);
+
+    const restoreToSidebar = useCallback((itemsToRestore: AuditCorrections[]) => {
+        setAuditData(prev => {
+            if (!prev) return prev;
+            return { ...prev, corrections: [...prev.corrections, ...itemsToRestore] }
+        });
+    }, []);
+
+
+    const history = useHistory({
+        onRemoveFromActiveList: removeFromSidebar,
+        onRestoreToActiveList: restoreToSidebar,
+
+        syncToSheet: async (action, direction) => {
+            await server.applyHistoryAction(action.items, action.type, direction);
+        }
+    });
+
+    const { performAuthorizedChange } = useVersioning({
+        onInvalidate: useCallback(async () => {
+            await resetAudit();
+            showToast("Sheet edited manually, Audit data cleared to prevent errors.");
+        }, [showToast])
+    });
 
     //Check for cached audit and load it
     useEffect(() => {
-        const loadCachedAudit = async (): Promise<void> => {
-            setStatus('restoring')
-            try {
-                const cached = await server.getCachedAudit();
+        const init = async () => {
+            setStatus('restoring');
 
-                if (cached) {
-                    const data: AuditData = JSON.parse(cached);
-                    setAuditData(data);
-                    setStatus('ready');
-                } else {
-                    setStatus('idle');
-                }
-            } catch (error) {
-                console.error("Cache recovery failed:", error);
+            const cached = await server.getCachedAudit();
+
+            if (!cached) {
                 setStatus('idle');
+                return;
             }
+
+            let parsed;
+
+            try {
+                parsed = JSON.parse(cached);
+
+                if (!parsed)
+                    throw Error
+            } catch (error) {
+                // await resetAudit();
+                setStatus('idle');
+                return;
+            }
+
+            const cloudVersion = await server.getSheetVersion();
+            const { data, versionAtTimeOfAudit } = parsed;
+
+            if (cloudVersion === versionAtTimeOfAudit) {
+                setAuditData(JSON.parse(data));
+                setStatus('ready');
+            } else {
+                console.warn("Sheet version mismatch. Purging stale cache.");
+                // updateLocalSheetVersion(cloudVersion);
+                await resetAudit();
+                showToast("Sheet was modified since last audit. Please re-audit.");
+            }
+
+        }
+        const loadCachedAudit = async (): Promise<void> => {
+            await init();
+            // setStatus('restoring')
+            // try {
+            //     const cached = await server.getCachedAudit();
+
+            //     if (cached) {
+            //         const data: AuditData = JSON.parse(cached);
+            //         setAuditData(data);
+            //         setStatus('ready');
+            //     } else {
+            //         setStatus('idle');
+            //     }
+            // } catch (error) {
+            //     console.error("Cache recovery failed:", error);
+            //     setStatus('idle');
+            // }
         }
 
         loadCachedAudit();
@@ -58,10 +150,26 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
 
         try {
             //1: Get sheet context from App script and preprocess to check if can perform audit
-            const context: SheetContext = await server.getSheetContext();
+            const rawResponse = await server.getSheetContext();
 
-            if (!context || context.values.length < 2) {
-                throw new Error('Sheet is empty or invalid');
+            const context: SheetContext = typeof rawResponse === 'string' ?
+                JSON.parse(rawResponse) : rawResponse;
+
+            if (!context || !context.values) {
+                throw new Error(`Sheet is empty. Recieved: ${context}`);
+            }
+
+            const sheetHeaders = context.headers.map((h: any) => String(h).toLowerCase().trim());
+            const missingHeaders = REQUIRED_HEADERS.filter((req: any) => !sheetHeaders.includes(req.toLowerCase()));
+
+            if (missingHeaders.length > 0) {
+                throw new Error(`Missing required headers: ${missingHeaders.join(', ')}`);
+            }
+
+            const dataRowCount = context.values.length - 1
+
+            if (dataRowCount < MIN_DATA_ROWS) {
+                throw new Error(`Sheet needs at least ${MIN_DATA_ROWS} row(s) of data below the header.`);
             }
 
             //2: Calling API Endpoint
@@ -82,8 +190,10 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             const data: AuditData = await response.json();
 
             //3: Apply highlights and cache data
-            await server.highlightCells(data.corrections);
-            await server.saveAuditToCache(data);
+            await performAuthorizedChange(async () => {
+                await server.highlightCells(data.corrections);
+                await server.saveAuditToCache(data);
+            });
 
             setAuditData(data);
             setStatus('ready');
@@ -92,7 +202,7 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             setStatus('idle');
             throw error;
         }
-    }, [config.apiEndpoint])
+    }, [config, performAuthorizedChange]);
 
     //Select a cell
     const selectCell = useCallback((cellAddress: string): void => {
@@ -115,24 +225,23 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             throw new Error("Correction not found");
         }
 
-        const histoyItem: AuditCorrections = correction;
+        //Create history action object
+        const action: HistoryAction = {
+            id: Date.now().toString(),
+            type: 'FIX',
+            items: [correction]
+        }
 
-        //update undo history
-        setUndoHistory(prev => [...prev, [histoyItem]])
-        setRedoHistory([]); //clear redo history since it is out of date
+        //Record history action, remove correction from UI, apply action to sheet.
+        await performAuthorizedChange(async () => {
+            history.record(action);
+            removeFromSidebar([correction]);
+            await server.applyHistoryAction([correction], 'FIX', 'redo');
 
-        await server.applyFix(correction.cellAddress, correction.fixedValue);
-
-        //Remove cell from local state
-        setAuditData((prev) => {
-            if (!prev) return null;
-            return {
-                ...prev,
-                corrections: prev.corrections.filter(
-                    (c) => c.cellAddress !== selectedCell
-                )
-            };
-        });
+        }).catch(error => {
+            restoreToSidebar([correction]);
+            throw error;
+        })
 
         setSelectedCell(null);
     }, [selectedCell, auditData])
@@ -145,124 +254,69 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
 
         const batch = [...auditData.corrections];
 
-        await server.applyFixAll(batch);
+        const action: HistoryAction = {
+            id: Date.now().toString(),
+            type: 'FIX',
+            items: batch
+        };
 
-        setUndoHistory((prev) => [...prev, batch]);
-        setAuditData((prev) => {
-            if (!prev) return null;
-            return {
-                ...prev,
-                corrections: []
-            };
+        //Cache auditData before nuking it incase of restoration
+        const auditCache = auditData;
+
+        await performAuthorizedChange(async () => {
+            history.record(action);
+            //Optimistically clear whole sidebar
+            setAuditData(prev => prev ? { ...prev, corrections: [] } : null);
+            await server.applyHistoryAction(batch, 'FIX', 'redo');
+
+        }).catch(error => {
+            setAuditData(auditCache);
+            throw error;
         });
-    }, [auditData])
+
+    }, [auditData, performAuthorizedChange, history]);
 
 
     //Ignore - Removes specific cell from corrections
-    const ignoreCorrection = useCallback(async (cellAddress: string): Promise<void> => {
-        const correction = auditData?.corrections.find(c => c.cellAddress === cellAddress);
-        if (!correction) return;
-
-
-        await server.removeCellHighlights([cellAddress]);
-
-        setAuditData((prev) => {
-            if (!prev) return null;
-            return {
-                ...prev,
-                corrections: prev.corrections.filter(
-                    (c) => c.cellAddress !== cellAddress
-                )
-            };
+    const handleIgnore = async (item: AuditCorrections): Promise<void> => {
+        const action: HistoryAction = {
+            id: Date.now().toString(),
+            type: 'IGNORE',
+            items: [item]
+        }
+        performAuthorizedChange(async () => {
+            history.record(action);
+            removeFromSidebar([item]);
+            await server.applyHistoryAction([item], 'IGNORE', 'redo');
+        }).catch(error => {
+            restoreToSidebar([item]);
+            throw error;
         });
 
-        //Add to undo history
-        setUndoHistory(prev => [...prev, [correction]]);
-
-        if (selectedCell === cellAddress) {
-            setSelectedCell(null);
-        }
-    }, [selectedCell])
-
-    const undo = useCallback(async (): Promise<void> => {
-        if (undoHistory.length === 0) {
-            throw new Error('Nothing to undo');
-        }
-
-        //Get the last item from history
-        const lastBatch = undoHistory[undoHistory.length - 1];
-
-        try {
-
-            Promise.all(lastBatch.map(item =>
-                server.applyUndo(item.cellAddress, item.originalValue)
-            ));
-
-            //Apply highlight
-            await server.highlightCells(lastBatch);
-
-            //Update local audit data to put item back
-            setAuditData(prev => prev ? {
-                ...prev,
-                corrections: [...prev.corrections, ...lastBatch]
-            } : null);
-
-        } catch (error) {
-            console.error("Undo failed:", error);
-        }
-
-        //Remove from undo history
-        setUndoHistory(prev => prev.slice(0, -1));
-        setRedoHistory(prev => [...prev, lastBatch]);
-
-    }, [undoHistory]);
-
-    const redo = useCallback(async (): Promise<void> => {
-        if (redoHistory.length === 0) return;
-
-        //Get last batch of changes from Redo
-        const lastRedoBatch = redoHistory[redoHistory.length - 1];
-
-        try {
-
-            await Promise.all(lastRedoBatch.map(item =>
-                server.applyFix(item.cellAddress, item.fixedValue)
-            ));
-
-            setUndoHistory(prev => [...prev, lastRedoBatch]);
-
-            setRedoHistory(prev => prev.slice(0, -1));
-
-            setAuditData(prev => {
-                if (!prev) return null;
-                const addressToRemove = lastRedoBatch.map(c => c.cellAddress);
-                return {
-                    ...prev,
-                    corrections: prev.corrections.filter(c => !addressToRemove.includes(c.cellAddress))
-                };
-            });
-
-        } catch (error) {
-            console.error("Redo failed:", error);
-        }
-    }, [redoHistory]);
+    };
 
     const resetAudit = useCallback(async (): Promise<void> => {
-        if (auditData?.corrections.length) {
-            const addresses = auditData.corrections.map(c => c.cellAddress);
+        await performAuthorizedChange(async () => {
+            if (auditData?.corrections.length) {
+                await server.removeCellHighlights(auditData.corrections.map(c => c.cellAddress));
+            }
+            //Clear cache
+            await server.saveAuditToCache(null);
+        });
 
-            await server.removeCellHighlights(addresses);
-        }
         setStatus('idle');
         setAuditData(null);
-        setUndoHistory([]);
-        setRedoHistory([]);
+        history.clearHistory();
         setSelectedCell(null);
-        setSelectedCell(null);
+    }, [auditData, history, performAuthorizedChange]);
 
-        //Clear cache
-        await server.saveAuditToCache(null);
-    }, []);
+    const undo = useCallback(async () => {
+        await performAuthorizedChange(async () => await history.undo())
+    }, [history, performAuthorizedChange]);
+
+    const redo = useCallback(async () => {
+        await performAuthorizedChange(async () => await history.redo())
+    }, [history, performAuthorizedChange])
 
     return {
         status,
@@ -272,11 +326,11 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
         selectCell,
         fixCurrent,
         fixAll,
-        ignoreCorrection,
+        handleIgnore,
         resetAudit,
-        undo,
-        redo,
-        canRedo: redoHistory.length > 0,
-        canUndo: undoHistory.length > 0
+        undo: undo,
+        redo: redo,
+        canRedo: history.canRedo && !history.isHistoryBusy,
+        canUndo: history.canUndo && !history.isHistoryBusy
     }
 }

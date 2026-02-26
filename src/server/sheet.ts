@@ -1,13 +1,22 @@
 // @ts-ignore
-function getSheetContext(): SheetContext {
-    const sheet = SpreadsheetApp.getActiveSheet();
-    const range = sheet.getDataRange();
-    const values = range.getValues();
+function getSheetContext(): string {
+    try {
+        const sheet = SpreadsheetApp.getActiveSheet();
+        const range = sheet.getDataRange();
+        const values = range.getValues();
 
-    return {
-        values: values,
-        sheetName: sheet.getName(),
-        id: SpreadsheetApp.getActiveSpreadsheet().getId()
+        const payload: SheetContext = {
+            values: values,
+            sheetName: sheet.getName(),
+            headers: values[0] || [],
+            rowCount: range.getLastRow(),
+            id: SpreadsheetApp.getActiveSpreadsheet().getId()
+        }
+
+        return JSON.stringify(payload);
+
+    } catch (error: any) {
+        return JSON.stringify({ error: error.toString() });
     }
 }
 
@@ -22,56 +31,6 @@ function selectCell(cellAddress: string): void {
     sheet.setActiveRange(range);
 }
 
-// @ts-ignore
-function applyFix(cellAddress: string, fixedValue: string): void {
-    const sheet = SpreadsheetApp.getActiveSheet();
-    const range = sheet.getRange(cellAddress);
-
-    range.setValue(fixedValue);
-    range.setBackground(null);
-    range.clearNote();
-    SpreadsheetApp.flush();
-}
-
-// @ts-ignore
-function applyUndo(cellAddress: string, originalValue: string): void {
-    const sheet = SpreadsheetApp.getActiveSheet();
-    const range = sheet.getRange(cellAddress);
-
-    range.setValue(originalValue);
-    SpreadsheetApp.flush();
-}
-
-// -----------BULK OPERATIONS----------- 
-
-// @ts-ignore
-function applyFixAll(corrections: AuditCorrections[]) {
-    if (!corrections || corrections.length === 0) return;
-
-
-    const sheet = SpreadsheetApp.getActiveSheet();
-    const dataRange = sheet.getDataRange();
-
-    const values = dataRange.getValues();
-
-    corrections.forEach((correction) => {
-        const { row, col } = a1ToIndex(correction.cellAddress);
-
-        //Batch all edits into single array for single API call to lower latency
-        if (values[row] !== undefined && values[row][col] !== undefined) {
-            values[row][col] = correction.fixedValue;
-        }
-    });
-    dataRange.setValues(values);
-
-    const addresses = corrections.map(c => c.cellAddress);
-    const rangeList = sheet.getRangeList(addresses);
-
-    rangeList.setBackground(null);
-    rangeList.clearNote();
-
-    SpreadsheetApp.flush();
-}
 
 // @ts-ignore
 function highlightCells(corrections: AuditCorrections[]): void {
@@ -111,6 +70,51 @@ function removeCellHighlights(cellAddresses: string[]): void {
     rangeList.clearNote();
 }
 
+//@ts-ignore
+function applyHistoryAction(items: AuditCorrections[], actionType: string, direction: string) {
+    if (!items || items.length === 0) return;
+
+    const sheet = SpreadsheetApp.getActiveSheet();
+    const dataRange = sheet.getDataRange();
+
+    const addresses = items.map(item => item.cellAddress);
+    const rangeList = sheet.getRangeList(addresses);
+
+    //FIX CASE
+    if (actionType === 'FIX') {
+        const values = dataRange.getValues();
+
+        items.forEach(item => {
+            const { row, col } = a1ToIndex(item.cellAddress);
+            if (values[row] && values[row][col] !== undefined) {
+                // REDO moves forward to fixedValue. UNDO moves backward to originalValue.
+                values[row][col] = (direction === 'redo') ? item.fixedValue : item.originalValue;
+            }
+        });
+
+        dataRange.setValues(values);
+    }
+
+    //HANDLE FORMATTING AND NOTES
+    if (direction === 'redo') {
+        rangeList.setBackground(null);
+        rangeList.clearNote();
+    } else if (direction === 'undo') {
+        const notes = dataRange.getNotes();
+
+        items.forEach(item => {
+            const { row, col } = a1ToIndex(item.cellAddress);
+            if (notes[row] && notes[row][col] !== undefined) {
+                notes[row][col] = `ISSUE ${item.issue}\n\nFIX: ${item.fixedValue}`;
+            }
+        });
+
+        dataRange.setNotes(notes);
+        rangeList.setBackground('#fce8e6')
+    }
+
+    SpreadsheetApp.flush();
+}
 
 
 //-----------UTILITIES-----------

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
 
 interface useHistoryProps {
     onRestoreToActiveList: (items: AuditCorrections[]) => void;
@@ -47,6 +47,7 @@ const useHistory = ({
         }
     }, [past, onRestoreToActiveList, syncToSheet, onRemoveFromActiveList]);
 
+    //REDO: Move from FUTURE -> PAST. Reverse of Undo
     const redo = useCallback(async () => {
         if (future.length === 0 || isHistoryBusy) return;
 
@@ -80,7 +81,7 @@ const useHistory = ({
         redo,
         clearHistory,
         canUndo: past.length > 0,
-        canRedo: past.length > 0,
+        canRedo: future.length > 0,
         isHistoryBusy
     }
 }

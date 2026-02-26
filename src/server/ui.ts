@@ -19,20 +19,20 @@ function openAuditSidebar() {
 }
 
 
-/*
-Cache invalidation, will add a more robust cache invalidation system later, 
-currently it deletes all cached audit data on any manual edits to the sheet.
-*/
-//@ts-ignore
-function installEditTrigger() {
-    const sheet = SpreadsheetApp.getActive();
-    ScriptApp.newTrigger('onEdit')
-        .forSpreadsheet(sheet)
-        .onEdit()
-        .create();
-}
+// /*
+// Cache invalidation, will add a more robust cache invalidation system later,
+// currently it deletes all cached audit data on any manual edits to the sheet.
+// */
+// //@ts-ignore
+// function installEditTrigger() {
+//     const sheet = SpreadsheetApp.getActive();
+//     ScriptApp.newTrigger('onEdit')
+//         .forSpreadsheet(sheet)
+//         .onEdit()
+//         .create();
+// }
 
-//@ts-ignore
-function onEdit(event: GoogleAppsScript.Events.SheetsOnEdit) {
-    PropertiesService.getDocumentProperties().deleteProperty('LAST_AUDIT')
-}
+// //@ts-ignore
+// function onEdit(event: GoogleAppsScript.Events.SheetsOnEdit) {
+//     PropertiesService.getDocumentProperties().deleteProperty('LAST_AUDIT')
+// }
