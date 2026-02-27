@@ -13,7 +13,7 @@ interface useAuditReturn {
     status: AuditStatus;
     auditData: AuditData | null;
     selectedCell: string | null;
-    startAudit: () => Promise<void>;
+    startAudit: () => Promise<number>;
     selectCell: (cellAddress: string) => void;
     fixCurrent: () => Promise<void>;
     fixAll: () => Promise<void>;
@@ -87,7 +87,6 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
     useEffect(() => {
         const init = async () => {
             setStatus('restoring');
-
             const cached = await server.getCachedAudit();
 
             if (!cached) {
@@ -103,7 +102,6 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
                 if (!parsed)
                     throw Error
             } catch (error) {
-                // await resetAudit();
                 setStatus('idle');
                 return;
             }
@@ -112,44 +110,26 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             const { data, versionAtTimeOfAudit } = parsed;
 
             if (cloudVersion === versionAtTimeOfAudit) {
-                setAuditData(JSON.parse(data));
+                setAuditData(data);
                 setStatus('ready');
             } else {
                 console.warn("Sheet version mismatch. Purging stale cache.");
-                // updateLocalSheetVersion(cloudVersion);
                 await resetAudit();
                 showToast("Sheet was modified since last audit. Please re-audit.");
             }
 
         }
-        const loadCachedAudit = async (): Promise<void> => {
-            await init();
-            // setStatus('restoring')
-            // try {
-            //     const cached = await server.getCachedAudit();
 
-            //     if (cached) {
-            //         const data: AuditData = JSON.parse(cached);
-            //         setAuditData(data);
-            //         setStatus('ready');
-            //     } else {
-            //         setStatus('idle');
-            //     }
-            // } catch (error) {
-            //     console.error("Cache recovery failed:", error);
-            //     setStatus('idle');
-            // }
-        }
 
-        loadCachedAudit();
+        init();
     }, []);
 
     //Perform a new audit
-    const startAudit = useCallback(async (): Promise<void> => {
+    const startAudit = useCallback(async (): Promise<number> => {
         setStatus('auditing');
 
         try {
-            //1: Get sheet context from App script and preprocess to check if can perform audit
+            //Get sheet context from App script and preprocess to check if can perform audit
             const rawResponse = await server.getSheetContext();
 
             const context: SheetContext = typeof rawResponse === 'string' ?
@@ -172,8 +152,8 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
                 throw new Error(`Sheet needs at least ${MIN_DATA_ROWS} row(s) of data below the header.`);
             }
 
-            //2: Calling API Endpoint
 
+            //Calling API Endpoint
             const response = await fetch(config.apiEndpoint, {
                 method: 'POST',
                 headers: {
@@ -189,14 +169,17 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
 
             const data: AuditData = await response.json();
 
-            //3: Apply highlights and cache data
+
+            //Apply highlights and cache data
             await performAuthorizedChange(async () => {
                 await server.highlightCells(data.corrections);
-                await server.saveAuditToCache(data);
             });
 
+            await server.saveAuditToCache(data);
             setAuditData(data);
             setStatus('ready');
+
+            return data?.corrections.length || 0;
         } catch (error) {
             console.error('Audit failed', error);
             setStatus('idle');
@@ -296,6 +279,8 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
     };
 
     const resetAudit = useCallback(async (): Promise<void> => {
+        setStatus('resetting');
+
         await performAuthorizedChange(async () => {
             if (auditData?.corrections.length) {
                 await server.removeCellHighlights(auditData.corrections.map(c => c.cellAddress));

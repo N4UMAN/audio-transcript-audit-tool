@@ -1,45 +1,111 @@
-//Cache and Storage
-const CACHE_KEY = 'LAST_AUDIT'
+
+const INTERNAL_SHEET_NAME = '_AUDIT_INTERNAL_';
+
+function getInternalSheet() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(INTERNAL_SHEET_NAME);
+    if (!sheet) {
+        sheet = ss.insertSheet(INTERNAL_SHEET_NAME);
+        sheet.hideSheet();
+
+
+        const warningRange = sheet.getRange("A1:B1");
+        warningRange.merge();
+        warningRange.setValue("⚠️ WARNING: INTERNAL AUDIT SYSTEM DATA - DO NOT MODIFY OR DELETE ⚠️");
+        warningRange.setBackground("#990000");
+        warningRange.setFontColor("#ffffff");
+        warningRange.setFontWeight("bold");
+        warningRange.setHorizontalAlignment("center");
+
+
+        sheet.getRange("A2").setValue("SHEET_VERSION:");
+        sheet.getRange("A3").setValue("AUDIT_CACHE:");
+        sheet.getRange("A2:A3").setFontWeight("bold").setBackground("#f3f3f3");
+
+
+        sheet.getRange("B2").setValue(0);
+
+        sheet.setColumnWidth(1, 150);
+        sheet.setColumnWidth(2, 600);
+        sheet.setFrozenRows(1);
+
+        const protection = sheet.protect().setDescription('Protect SheetScan Internal Storage Data');
+        protection.setWarningOnly(true);
+    }
+    return sheet;
+}
 
 //@ts-ignore
-function saveAuditToCache(dataObj: AuditData, version?: string): void {
-    const cache = {
+function getSheetVersion(): string {
+    try {
+        const sheet = getInternalSheet();
+        const version = sheet.getRange('B2').getValue();
+
+        return (version !== "" && version !== null) ? version.toString() : "0";
+    } catch (e) {
+        return "0";
+    }
+}
+
+//@ts-ignore
+function incrementSheetVersion(): string {
+    const sheet = getInternalSheet();
+    const range = sheet.getRange('B2');
+
+    const next = (parseInt(range.getValue() || 0) + 1);
+
+    range.setValue(next);
+
+    SpreadsheetApp.flush();
+    return next.toString();
+}
+
+//@ts-ignore
+function saveAuditToCache(dataObj: AuditData | null, version?: string): void {
+    const sheet = getInternalSheet();
+    const cacheRange = sheet.getRange('B3');
+
+    if (!dataObj) {
+        cacheRange.clearContent();
+        return;
+    }
+
+    const cachePayload: AuditCache = {
         data: dataObj,
         versionAtTimeOfAudit: version || getSheetVersion()
     };
 
     try {
-        PropertiesService.getDocumentProperties().setProperty(CACHE_KEY, JSON.stringify(cache));
+        cacheRange.setNumberFormat('@');
+
+        cacheRange.setValue(JSON.stringify(cachePayload));
+        SpreadsheetApp.flush();
     } catch (error) {
         console.error("Cache Save Error:", error);
     }
 }
+
 //@ts-ignore
 function getCachedAudit(): string | null {
     try {
-        return PropertiesService.getDocumentProperties().getProperty(CACHE_KEY);
+        const sheet = getInternalSheet();
+        const cell = sheet.getRange('B3');
+
+        let cached = cell.getValue();
+
+        if (!cached || cached === "") {
+            return null;
+        }
+
+        return cached ? cached.toString() : null;
     } catch (error) {
-        console.log("Cached audit not found");
         return null;
     }
 }
 
 //@ts-ignore
 function onEdit(event: GoogleAppsScript.Events.SheetsOnEdit) {
-    incrementSheetVersion();
-}
-
-//@ts-ignore
-function getSheetVersion() {
-    return PropertiesService.getScriptProperties().getProperty('SHEET_VERSION') || "0";
-}
-
-//@ts-ignore
-function incrementSheetVersion() {
-    const props = PropertiesService.getScriptProperties();
-    const next = (parseInt(props.getProperty('SHEET_VERSION') || "0") + 1).toString();
-
-    props.setProperty('SHEET_VERSION', next);
-
-    return next;
+    if (event.range.getSheet().getName() !== INTERNAL_SHEET_NAME) {
+        incrementSheetVersion();
+    }
 }

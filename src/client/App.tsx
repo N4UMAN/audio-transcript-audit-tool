@@ -50,8 +50,8 @@ const AuditManager = ({ config }: { config: EnvData }) => {
     const [btnState, setBtnState] = useState<BtnStates>('ready');
     const handleStartAudit = async (): Promise<void> => {
         try {
-            await startAudit();
-            showToast(`Audit Complete: ${auditData?.corrections.length ?? 0} issues found`);
+            const noOfIssues = await startAudit();
+            showToast(`Audit Complete: ${noOfIssues ?? 0} issues found`);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             showToast(`Error: ${message}`);
@@ -104,10 +104,10 @@ const AuditManager = ({ config }: { config: EnvData }) => {
         }
     }
 
-    if (status === 'restoring') {
+    if (status === 'restoring' || status === 'resetting') {
         return (
             <div className="flex items-center justify-center h-screen bg-gray-50">
-                <Loader message='Just a moment...' />
+                <Loader message={(status === 'restoring') ? 'Just a moment...' : 'Resetting...'} />
             </div>
         )
     }
@@ -119,11 +119,11 @@ const AuditManager = ({ config }: { config: EnvData }) => {
 
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto p-3">
-                {/* Idle State - Final Monotone Utility */}
+                {/* Idle State  */}
                 {status === 'idle' && (
                     <div className="relative flex flex-col h-full bg-white overflow-hidden border border-gray-100">
 
-                        {/* Monotone Structural Accents */}
+                        {/*  Structural Accents */}
                         <div className="absolute top-[-5%] right-[-5%] w-40 h-40 rounded-full border border-gray-50 animate-[spin_60s_linear_infinite]" />
                         <div className="absolute top-[12%] left-[-15px] w-12 h-12 bg-gray-900 rotate-12 opacity-[0.05]" />
                         <div className="absolute bottom-[25%] right-[-10px] w-16 h-16 border-2 border-gray-100 rotate-45" />
@@ -153,7 +153,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
                                     <div className="space-y-2">
                                         <p className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Process</p>
                                         <p className="text-sm text-gray-500 leading-relaxed font-medium">
-                                            Automatically parses the active Google Sheet to identify structural inconsistencies, formatting anomalies, and empty data nodes.
+                                            Automatically parses the active Google Sheet to identify structural inconsistencies, formatting issues, and empty data cells.
                                         </p>
                                     </div>
 
@@ -163,7 +163,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
                                             <p className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Execution</p>
                                         </div>
                                         <p className="text-xs text-gray-400 leading-snug">
-                                            Click start to begin the global diagnostic. Issues will be compiled into a fixable queue.
+                                            Click start to begin the diagnostic. Issues will be compiled into a fixable queue.
                                         </p>
                                     </div>
                                 </div>

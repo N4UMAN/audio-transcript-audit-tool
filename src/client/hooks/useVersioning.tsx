@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { server } from '../utils/gas-bridge'
-import { useToast } from './useToast';
 interface useVersioningReturn {
     localVersion: string | null;
     performAuthorizedChange: (action: () => Promise<any>) => Promise<void>
@@ -15,7 +14,6 @@ const useVersioning = ({
     onInvalidate
 }: useVersioningProps): useVersioningReturn => {
     const [localVersion, setLocalVersion] = useState<string | null>(null);
-    const { showToast } = useToast();
     const [isChecking, setIsChecking] = useState(false);
 
     // useEffect(() => {
@@ -41,7 +39,7 @@ const useVersioning = ({
     }, [localVersion, onInvalidate, isChecking])
 
     useEffect(() => {
-        const onFocus = () => { showToast("Focus changed, checking sync", 10000); checkSync(); }
+        const onFocus = () => checkSync();
         window.addEventListener('focus', onFocus);
 
         return () => window.removeEventListener('focus', onFocus);

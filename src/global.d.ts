@@ -6,7 +6,7 @@ declare global {
 
     type IssueType = 'inconsistency' | 'guideline' | 'punctuation' | 'spelling';
 
-    type AuditStatus = 'idle' | 'restoring' | 'auditing' | 'ready';
+    type AuditStatus = 'idle' | 'restoring' | 'auditing' | 'resetting' | 'ready';
     type BtnStates = 'ready' | 'undo' | 'redo' | 'fixing'
 
 
@@ -52,7 +52,7 @@ declare global {
 
     interface AuditCache {
         data: AuditData;
-        versionAtTimeOfAudi: string
+        versionAtTimeOfAudit: string
     }
 
     interface ServerFunctions {

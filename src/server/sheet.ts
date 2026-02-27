@@ -50,6 +50,7 @@ function highlightCells(corrections: AuditCorrections[]): void {
             notes[row][col] = `ISSUE ${correction.issue}\n\nFIX: ${correction.fixedValue}`;
         }
     });
+    
     dataRange.setNotes(notes);
 
     const addresses = corrections.map(c => c.cellAddress);
