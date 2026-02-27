@@ -1,3 +1,5 @@
+
+//@ts-ignore
 function runSecureAudit(context: SheetContext) {
     const props = PropertiesService.getScriptProperties().getProperties();
 

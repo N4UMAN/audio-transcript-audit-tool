@@ -1,9 +1,4 @@
 
-// import { mockServer } from "./mock-server";
-
-
-// const isGASEnvironment = typeof google !== 'undefined' && google?.script?.run;
-
 const realServer = new Proxy({} as ServerFunctions, {
     get(_, prop: string) {
         return (...args: unknown[]) => {

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { server } from './utils/gas-bridge'
+import { useState } from 'react'
 import { useToast } from './hooks/useToast'
 import { useAudit } from './hooks/useAudit'
 import Toast from './components/Toast'
@@ -10,26 +9,26 @@ import Loader from './components/Loader'
 import FileCheckIcon from './components/icons/FileCheckIcon'
 
 const App = () => {
-    const [config, setConfig] = useState<EnvData | null>(null);
+    // const [config, setConfig] = useState<EnvData | null>(null);
 
-    useEffect(() => {
-        server.getClientSideVars()
-            .then((data) => setConfig(data))
-            .catch((error) => console.log("Failed to load environment variables:", error));
-    }, []);
+    // useEffect(() => {
+    //     server.getClientSideVars()
+    //         .then((data) => setConfig(data))
+    //         .catch((error) => console.log("Failed to load environment variables:", error));
+    // }, []);
 
-    if (!config) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-gray-50">
-                <Loader message='Initializing...' />
-            </div>
-        )
-    }
+    // if (!config) {
+    //     return (
+    //         <div className="flex items-center justify-center h-screen bg-gray-50">
+    //             <Loader message='Initializing...' />
+    //         </div>
+    //     )
+    // }
 
-    return <AuditManager config={config} />
+    return <AuditManager />
 }
 
-const AuditManager = ({ config }: { config: EnvData }) => {
+const AuditManager = () => {
     const {
         status,
         auditData,
@@ -44,7 +43,7 @@ const AuditManager = ({ config }: { config: EnvData }) => {
         redo,
         canRedo,
         canUndo
-    } = useAudit({ apiEndpoint: config.API_BASE_URL, apiKey: config.API_KEY });
+    } = useAudit();
 
     const { toast, showToast } = useToast();
     const [btnState, setBtnState] = useState<BtnStates>('ready');

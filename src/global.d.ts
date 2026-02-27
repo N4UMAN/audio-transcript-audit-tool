@@ -37,12 +37,6 @@ declare global {
         message: string;
     }
 
-    interface EnvData {
-        API_BASE_URL: string;
-        DEBUG_MODE: boolean;
-        API_KEY: string,
-        VERSION: string;
-    }
 
     interface HistoryAction {
         id: string;
@@ -67,7 +61,7 @@ declare global {
         getCachedAudit(): Promise<string | null>;
         saveAuditToCache(data: AuditData | null, version?: string): Promise<void>;
         applyUndo(cellAddress: string, originalValue: string): Promise<void>;
-        getClientSideVars(): Promise<EnvData>;
         applyHistoryAction(items: AuditCorrections[], actionType: string, direction: string): Promise<void>
+        runSecureAudit(context: SheetContext): Promise<string>
     }
 }

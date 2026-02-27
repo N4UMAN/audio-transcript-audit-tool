@@ -4,10 +4,6 @@ import useHistory from './useHistory'
 import useVersioning from './useVersioning'
 import { useToast } from './useToast'
 
-interface useAuditConfig {
-    apiEndpoint: string,
-    apiKey: string
-}
 
 interface useAuditReturn {
     status: AuditStatus;
@@ -39,7 +35,7 @@ const REQUIRED_HEADERS = [
 ]
 const MIN_DATA_ROWS = 2
 
-export function useAudit(config: useAuditConfig): useAuditReturn {
+export function useAudit(): useAuditReturn {
     const [status, setStatus] = useState<AuditStatus>('idle');
     const [auditData, setAuditData] = useState<AuditData | null>(null);
     const [selectedCell, setSelectedCell] = useState<string | null>(null);
@@ -154,20 +150,8 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
 
 
             //Calling API Endpoint
-            const response = await fetch(config.apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    "X-API-KEY": config.apiKey,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(context)
-            });
-
-            if (!response.ok) {
-                throw new Error(`API error: ${response.status}`);
-            }
-
-            const data: AuditData = await response.json();
+            const response = await server.runSecureAudit(context);
+            const data: AuditData = typeof response === 'string' ? JSON.parse(response) : response;
 
 
             //Apply highlights and cache data
@@ -185,7 +169,7 @@ export function useAudit(config: useAuditConfig): useAuditReturn {
             setStatus('idle');
             throw error;
         }
-    }, [config, performAuthorizedChange]);
+    }, [performAuthorizedChange]);
 
     //Select a cell
     const selectCell = useCallback((cellAddress: string): void => {
