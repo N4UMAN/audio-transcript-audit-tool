@@ -2,21 +2,22 @@
 
 A Google Sheets plugin for validating audio transcripts against internal formatting and style guidelines. Built as a freelance tool for a transcription company.
 
----
 
 ## What it does
 
 Audit team works directly inside Google Sheets. Each row is a transcript segment with fields like speaker, timestamps, language, accent, emotions, and the transcript text itself. Over time, inconsistencies creep in and working through each sheet is very time consuming.
 
-This plugin adds an **Audit** menu to the sheet. Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation engine and returns a list of flagged cells with suggested fixes. Results appear in a sidebar where issues can be reviewed, fixed individually or all at once, ignored, and undone/redone.
+This plugin adds an **Audit** menu to the sheet. Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation engine and returns a list of flagged cells with suggested fixes.
 
----
+Results appear in a sidebar where issues can be reviewed, fixed individually or all at once, ignored, and undone/redone.
+
 
 ## Why it exists
 
-The original approach used an LLM with RAG over the company's guidelines. It was slow, expensive, and hallucinated fixes — not acceptable for a functioning tool in a corporate environment. Replaced with a deterministic regex engine that's fast, consistent, and fully auditable. The backend lives separately so the validation logic stayed private from the company.
+The original approach used an LLM with RAG over the company's guidelines. It was slow, expensive, and hallucinated fixes — not acceptable for a functioning tool in a corporate environment.
 
----
+Replaced with a deterministic regex engine that's fast, consistent, and fully auditable. The backend lives separately so the validation logic stayed private from the company.
+
 
 ## Stack
 
@@ -24,7 +25,6 @@ The original approach used an LLM with RAG over the company's guidelines. It was
 
 **Server** — FastAPI. Exposes a single `/audit` endpoint. Accepts sheet context, runs validation, returns corrections. Protected by an API key.
 
----
 
 ## Architecture
 
@@ -41,9 +41,10 @@ React Sidebar (injected via GAS HtmlService)
 └── gas-bridge             — Proxy-based typed bridge to google.script.run
 ```
 
-React is the UI layer only. All sheet mutations go through the GAS orchestrator which handles locking, versioning, and cache invalidation atomically. Version tracking prevents stale audit data from being applied to a sheet that was manually edited since the last audit.
+React is the UI layer only. All sheet mutations go through the GAS orchestrator which handles locking, versioning, and cache invalidation atomically.
 
----
+Version tracking prevents stale audit data from being applied to a sheet that was manually edited since the last audit.
+
 
 ## Project structure
 
@@ -83,7 +84,6 @@ audio-transcript-audit-tool/
     └── requirements.txt
 ```
 
----
 
 ## Notable decisions
 
@@ -95,8 +95,9 @@ audio-transcript-audit-tool/
 
 **Versioning** — Every sheet mutation increments a version stored in a hidden internal sheet. Cached audit results carry the version they were generated against. On load, if versions don't match, the cache is discarded and the user is prompted to re-audit.
 
----
 
 ## Note
 
-This project was discontinued before reaching production. The repo exists as a reference and portfolio piece. Running it requires a configured Google Sheet, clasp credentials, and Script Properties (`API_BASE_URL`, `API_KEY`) which are not included.
+This project was discontinued before reaching production. The repo exists as a reference and portfolio piece.
+
+Running it requires a configured Google Sheet, clasp credentials, and Script Properties (`API_BASE_URL`, `API_KEY`) which are not included.
