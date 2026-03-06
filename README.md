@@ -9,12 +9,15 @@ Audit team works directly inside Google Sheets. Each row is a transcript segment
 
 This plugin adds an **Audit** menu to the sheet. Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation engine and returns a list of flagged cells with suggested fixes.
 
-<img width="600" alt="image (13)" src="https://github.com/user-attachments/assets/b53f04dc-5408-400d-bf4f-0190151a2afa" />
+<p align="center">
+<img width="480" alt="image (13)" src="https://github.com/user-attachments/assets/b53f04dc-5408-400d-bf4f-0190151a2afa" />
+</p>
 
 Results appear in a sidebar where issues can be reviewed, fixed individually or all at once, ignored, and undone/redone.
 
-<img width="300" alt="Screenshot 2026-03-06 220305" src="https://github.com/user-attachments/assets/a3bcfe4c-5db7-428e-adf3-e47fc1538902" />
-<img width="700" alt="Screenshot 2026-03-06 220356" src="https://github.com/user-attachments/assets/a5d4e32c-2a42-4b05-a4a2-a2af42f6132b" />
+<p align="center">
+<img width="512" alt="Screenshot 2026-03-06 220356" src="https://github.com/user-attachments/assets/a5d4e32c-2a42-4b05-a4a2-a2af42f6132b" /> 
+</p>
 
 
 ## Why it exists
