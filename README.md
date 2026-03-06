@@ -1,4 +1,5 @@
 # audio-transcript-audit-tool
+
 A Google Sheets plugin for validating audio transcripts against internal formatting and style guidelines. Built as a freelance tool for a transcription company.
 
 ---
@@ -47,8 +48,9 @@ React is the UI layer only. All sheet mutations go through the GAS orchestrator 
 ## Project structure
 
 ```
-transcript-audit/
-├── client/                          # SHEETS-AUDIT-ENGINE
+audio-transcript-audit-tool/
+│
+├── client/                          # React + Google Apps Script
 │   ├── src/
 │   │   ├── assets/
 │   │   ├── client/                  # React sidebar
@@ -66,7 +68,8 @@ transcript-audit/
 │   ├── tsconfig.json
 │   ├── tsconfig.app.json
 │   └── tsconfig.node.json
-└── server/                          # SHEETS-AUDIT-ENGINE-API
+│
+└── server/                          # FastAPI backend
     ├── app/
     │   ├── engine/                  # Regex validation core
     │   │   ├── __init__.py
@@ -94,6 +97,6 @@ transcript-audit/
 
 ---
 
-## Read-Only preferred
+## Note
 
-This repo is intented for reference and showcase. Running it requires a configured Google Sheet, clasp credentials, Script Properties (`API_BASE_URL`, `API_KEY`).
+This project was discontinued before reaching production. The repo exists as a reference and portfolio piece. Running it requires a configured Google Sheet, clasp credentials, and Script Properties (`API_BASE_URL`, `API_KEY`) which are not included.
