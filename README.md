@@ -30,7 +30,7 @@ The original approach used an LLM with RAG over the company's guidelines. It was
 ```
 Google Sheets
 └── GAS (Apps Script)
-    ├── Services     — raw sheet operations (read, write, highlight, cache)
+    ├── Services layer     — raw sheet operations (read, write, highlight, cache)
     ├── Orchestrator       — business logic, versioning, atomic transactions
     └── API surface        — thin top-level wrappers callable by google.script.run
 
@@ -43,34 +43,6 @@ React Sidebar (injected via GAS HtmlService)
 React is the UI layer only. All sheet mutations go through the GAS orchestrator which handles locking, versioning, and cache invalidation atomically. Version tracking prevents stale audit data from being applied to a sheet that was manually edited since the last audit.
 
 ---
-
-## Architecture
-
-```
-audio-transcript-audit-tool/
-├── client/
-│   ├── src/
-│   │   ├── client/              # React sidebar
-│   │   │   ├── components/
-│   │   │   ├── hooks/
-│   │   │   │   ├── useAudit.tsx
-│   │   │   │   ├── useHistory.tsx
-│   │   │   │   └── useToast.tsx
-│   │   │   └── utils/
-│   │   │       └── gas-bridge.ts
-│   │   └── server/              # Google Apps Script
-│   │       ├── services.ts      # Sheet + cache operations
-│   │       ├── orchestrator.ts  # Business logic layer
-│   │       ├── api.ts           # Public GAS entry points
-│   │       └── ui.ts            # onOpen, sidebar bootstrap
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── tsconfig.json
-└── server/
-    ├── main.py
-    ├── routes/
-    └── engine/                  # Regex validation core
-```
 
 ## Project structure
 
@@ -85,6 +57,7 @@ transcript-audit/
 │   │   ├── server/                  # Google Apps Script
 │   │   │   ├── services.ts          # Sheet + cache operations
 │   │   │   ├── orchestrator.ts      # Business logic layer
+│   │   │   ├── api.ts               # Public GAS entry points
 │   │   │   └── ui.ts                # onOpen, sidebar bootstrap
 │   │   └── global.d.ts              # Shared types
 │   ├── index.html
