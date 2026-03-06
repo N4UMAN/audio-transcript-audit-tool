@@ -1,5 +1,5 @@
 """
-deterministic regex/ lookup transcript quality check
+deterministic regex based lookup transcript quality check
 """
 
 import re
@@ -7,7 +7,8 @@ from collections import defaultdict, Counter
 
 # Column indices
 COL = dict(audio_no=0, segment=1, speaker=2, start=3, end=4,
-           transcript=5, nonspeech=6, emotion=7, language=8, locale=9, accent=10)
+           transcript=5, nonspeech=6, emotion=7, language=8,
+           locale=9, accent=10)
 COL_LETTER = list("ABCDEFGHIJK")
 
 
@@ -167,6 +168,13 @@ def _best_locale(lang: str) -> str:
     return full[0] if full else next(iter(VALID_LOCALES.get(lang, [""])))
 
 
+def _to_float(val) -> float:
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return 0.
+
+
 # Per-row checks
 _SPEAKER_RE = re.compile(r'^speaker_\d{2}$')
 _SPEAKER_LIKE_RE = re.compile(r'(?i)^speaker[_ ]?(\d+)$')
@@ -177,14 +185,16 @@ def _check_speaker(i, val):
     if not isinstance(val, str) or not val:
         out.append(_issue(_addr(i, 2), "Speaker field is empty", "", "SPEAKER_FORMAT", val))
         return out
+
     if not _SPEAKER_RE.match(val):
         m = _SPEAKER_LIKE_RE.match(val)
-        fixed = f"speaker_{int(m.group(1)):02d}" if m else ""
-        out.append(_issue(
-            _addr(i, 2),
-            f"Speaker tag must be all-lowercase with underscores and zero-padded number (e.g. speaker_01). Got: '{val}'",
-            fixed, "SPEAKER_FORMAT", val
-        ))
+        if m:
+            fixed = f"speaker_{int(m.group(1)):02d}" if m else ""
+            out.append(_issue(
+                _addr(i, 2),
+                f"Speaker tag must be all-lowercase with underscores and zero-padded number (e.g. speaker_01). Got: '{val}'",
+                fixed, "SPEAKER_FORMAT", val
+            ))
 
     return out
 
@@ -193,7 +203,7 @@ def _check_timestamps(i, start, end):
     out = []
 
     try:
-        s, e = float(start), float(end)
+        s, e = _to_float(start), _to_float(end)
     except (TypeError, ValueError):
         return out
 
@@ -244,6 +254,7 @@ def _check_language(i, val):
             f"Language must be the full lowercase name, not an ISO code. Got: '{v}'",
             ISO_TO_LANG[vl], "LANGUAGE_FORMAT", val
         ))
+        return out
     if v != vl:
         out.append(_issue(
             _addr(i, 8),
@@ -282,7 +293,7 @@ def _check_locale(i, locale_val, language_val):
         loc = expected
 
     # Validity check against approved table
-    if lang in VALID_LOCALES and loc in VALID_LOCALES[lang]:
+    if lang in VALID_LOCALES and loc not in VALID_LOCALES[lang]:
         out.append(_issue(
             _addr(i, 9),
             f"Locale {loc} is not valid for language '{lang}'",
@@ -296,7 +307,7 @@ def _check_locale(i, locale_val, language_val):
         if lang not in VALID_LOCALES or full in VALID_LOCALES.get(lang, set()):
             out.append(_issue(
                 _addr(i, 9),
-                f"Bare locale subtag '{loc}' should be expanded to full region from",
+                f"Bare locale subtag '{loc}' should be expanded to full regional from",
                 full, "LOCALE_FORMAT", locale_val))
 
     return out
@@ -335,13 +346,12 @@ def _check_accent(i, accent_val, language_val):
 
     # Not in list at all
     fallback = (f"standard {lang}" if f"standard {lang}" in valid
-                else "regional accent" if "regnional accent" in valid
-                else sorted(valid)[0])
+                else "regional accent" if "regional accent" in valid else sorted(valid)[0])
     sample = ", ".join(sorted(valid)[:4])
 
     out.append(_issue(
         _addr(i, 10),
-        f"Accent '{acc}' is not in the approved list for '{lang}. Example: {sample}...",
+        f"Accent '{acc}' is not in the approved list for '{lang}'. Example: {sample}...",
         fallback, "ACCENT_INVALID", accent_val
     ))
     return out
@@ -391,7 +401,7 @@ def _check_inline_nonspeech(i, transcript):
 
         out.append(_issue(
             _addr(i, 5),
-            f"Non-soeech tag '{m.group(0)}' must not appear inline in the transcript",
+            f"Non-speech tag '{m.group(0)}' must not appear inline in the transcript",
             fixed, "NONSPEECH_FORMAT", transcript
         ))
     return out
@@ -407,7 +417,7 @@ def _check_pause_format(i, transcript):
         fixed = transcript.replace('...', '(...)')
         out.append(_issue(
             _addr(i, 5),
-            "Use '(....)' for a short pause, not '...'",
+            "Use '(...)' for a short pause, not '...'",
             fixed, "TRANSCRIPT_PAUSE", transcript
         ))
 
@@ -452,14 +462,15 @@ def _check_timestamp_gaps(rows):
         by_audio[row[COL["audio_no"]]].append((i, row))
 
     for audio_no, segs in by_audio.items():
-        segs.sort(key=lambda x: x[1][COL["segment"]] if isinstance(x[1][COL["segment"]], (int, float)) else 0)
+        segs.sort(key=lambda x: _to_float(x[1][COL["segment"]]))
+
         for j in range(len(segs) - 1):
             i_cur, r_cur = segs[j]
             i_nxt, r_nxt = segs[j+1]
 
             try:
-                end_cur = float(r_cur[COL["end"]])
-                start_nxt = float(r_nxt[COL["start"]])
+                end_cur = _to_float(r_cur[COL["end"]])
+                start_nxt = _to_float(r_nxt[COL["start"]])
             except (TypeError, ValueError):
                 continue
 
@@ -479,21 +490,22 @@ def _check_locale_consistency(rows):
     for i, row in enumerate(rows):
         by_audio[row[COL["audio_no"]]].append((i, row))
 
-        for audio_no, segs in by_audio.items():
-            locales = [str(s[1][COL["locale"]]).strip() for s in segs]
-            # Filter out null values
-            valid_locales = [l for l in locales if l and l.lower() != "null"]
-            if not valid_locales:
-                continue
+    for audio_no, segs in by_audio.items():
+        locales = [str(s[1][COL["locale"]]).strip() for s in segs]
 
-            majority = Counter(valid_locales).most_common(1)[0][0]
-            for (i, row), loc in zip(segs, locales):
-                if loc != majority:
-                    out.append(_issue(
-                        _addr(i, COL["locale"]),
-                        f"Locale '{loc}' inconsistant with majority '{majority}' for audio '{audio_no}'",
-                        majority, "LOCALE_FORMAT", loc
-                    ))
+        # Filter out null values
+        # valid_locales = [l for l in locales if l and l.lower() != "null"]
+        # if not valid_locales:
+        #     continue
+
+        majority = Counter(locales).most_common(1)[0][0]
+        for (i, row), loc in zip(segs, locales):
+            if loc != majority:
+                out.append(_issue(
+                    _addr(i, COL["locale"]),
+                    f"Locale '{loc}' inconsistent with majority '{majority}' for audio '{audio_no}'",
+                    majority, "LOCALE_FORMAT", loc
+                ))
     return out
 
 
@@ -512,9 +524,72 @@ def _check_language_consistency(rows):
             if lang != majority:
                 out.append(_issue(
                     _addr(i, COL["language"]),
-                    f"Language '{lang}' incosistant with majority '{majority}' for audio '{audio_no}'",
+                    f"Language '{lang}' inconsistent with majority '{majority}' for audio '{audio_no}'",
                     majority, "LANGUAGE_FORMAT", row[COL["language"]]
                 ))
+    return out
+
+# Use majority language across audio group as the trusted value
+
+
+def _resolve_row_lang(data_rows):
+    """Returns dict of row_idx -> trusted language string."""
+    by_audio = defaultdict(list)
+
+    for i, row in enumerate(data_rows):
+        by_audio[row[COL["audio_no"]]].append((i, row))
+
+    trusted = {}
+    for audio_no, segs in by_audio.items():
+        langs = [_resolve_lang(s[1][COL["language"]]) for s in segs]
+        majority = Counter(langs).most_common(1)[0][0]
+
+        for i, row in segs:
+            trusted[i] = majority
+    return trusted
+
+
+def _check_speaker_consistency(rows):
+    out = []
+    by_audio = defaultdict(list)
+
+    for i, row in enumerate(rows):
+        by_audio[row[COL["audio_no"]]].append((i, row))
+
+        for audio_no, segs in by_audio.items():
+            known = {
+                row[COL["speaker"]] for _, row in segs if _SPEAKER_RE.match(row[COL["speaker"]])
+            }
+
+            if not known:
+                continue
+
+            for i, row in segs:
+                val = row[COL["speaker"]]
+
+                if _SPEAKER_RE.match(str(val)):
+                    continue
+
+                # Try to extract a digit and match to nearest known speaker
+                digits = re.search(r'\d+', str(val))
+
+                if (digits):
+                    n = int(digits.group())
+
+                    fixed = min(known, key=lambda s: abs(int(re.search(r'\d+', s).group()) - n))
+
+                    out.append(_issue(
+                        _addr(i, 2),
+                        f"Malformed speaker '{val}' resolved to nearest known speaker in file.",
+                        fixed, "SPEAKER_FORMAT", val
+                    ))
+                else:
+                    # No digits - can't figure out how to resolve, flag for user
+                    out.append(_issue(
+                        _addr(i, 2),
+                        f"Could not resolve malformed speaker '{val}' — no digit found to match against known speakers ({', '.join(sorted(known))}).",
+                        "Please fix manually.", "SPEAKER_FORMAT", val
+                    ))
     return out
 
 
@@ -531,19 +606,22 @@ def run_deterministic_audit(payload: list) -> list[dict]:
     data_rows = [list(r) + [""] * max(0, 11-len(r)) for r in payload[1:]]
     issues = []
 
+    trusted_lang = _resolve_row_lang(data_rows)
+
     for i, row in enumerate(data_rows):
         issues += _check_speaker(i, row[COL["speaker"]])
         issues += _check_timestamps(i, row[COL["start"]], row[COL["end"]])
         issues += _check_emotion(i, row[COL["emotion"]])
         issues += _check_language(i, row[COL["language"]])
-        issues += _check_locale(i, row[COL["locale"]], row[COL["language"]])
-        issues += _check_accent(i, row[COL["accent"]], row[COL["language"]])
+        issues += _check_locale(i, row[COL["locale"]], trusted_lang[i])
+        issues += _check_accent(i, row[COL["accent"]], trusted_lang[i])
         issues += _check_nonspeech_col(i, row[COL["nonspeech"]])
         issues += _check_inline_nonspeech(i, row[COL["transcript"]])
         issues += _check_pause_format(i, row[COL["transcript"]])
         issues += _check_en_numbers(i, row[COL["transcript"]], row[COL["language"]])
 
     issues += _check_timestamp_gaps(data_rows)
+    issues += _check_speaker_consistency(data_rows)
     issues += _check_locale_consistency(data_rows)
     issues += _check_language_consistency(data_rows)
 

@@ -4,12 +4,13 @@ import json
 from .utils import validate_api_key
 from .schema import AuditPayload, AuditResponse
 from .services.deterministic_parser import run_deterministic_audit
-
+import time
 router = APIRouter(dependencies=[Depends(validate_api_key)])
 
 
 @router.post("/audit", response_model=AuditResponse)
 async def generate_chat(payload: AuditPayload, request: Request, skipLLM: bool = True):
+    start = time.perf_counter()
     groq_client = request.app.state.groq
     system_prompt = request.app.state.prompt_cache.get("system_prompt")
 
@@ -18,6 +19,9 @@ async def generate_chat(payload: AuditPayload, request: Request, skipLLM: bool =
     corrections = run_deterministic_audit(data)
 
     if skipLLM:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        print(f"Finished evaluating in {elapsed_ms:.2f} ms")
+
         return {
             "sheetName": "null",
             "corrections": corrections
