@@ -114,7 +114,7 @@ function runSecureAudit(context: SheetContext): string {
 
 
 // ─── getCachedAudit ───────────────────────────────────────────────────────────
-// Returns null if stale — React treats null as "no valid cache".
+// Returns null if stale. React treats null as "no valid cache".
 // @ts-ignore
 function getCachedAudit(): string | null {
     try {
@@ -146,6 +146,8 @@ function resetAudit(): void {
     if (cached) {
         try {
             const parsed: AuditCache = JSON.parse(cached);
+
+            //batch all addresses together
             const addresses = parsed.data.corrections.map((c: AuditCorrections) => c.cellAddress);
 
             if (addresses.length > 0) {

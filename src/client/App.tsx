@@ -9,21 +9,6 @@ import Loader from './components/Loader'
 import FileCheckIcon from './components/icons/FileCheckIcon'
 
 const App = () => {
-    // const [config, setConfig] = useState<EnvData | null>(null);
-
-    // useEffect(() => {
-    //     server.getClientSideVars()
-    //         .then((data) => setConfig(data))
-    //         .catch((error) => console.log("Failed to load environment variables:", error));
-    // }, []);
-
-    // if (!config) {
-    //     return (
-    //         <div className="flex items-center justify-center h-screen bg-gray-50">
-    //             <Loader message='Initializing...' />
-    //         </div>
-    //     )
-    // }
 
     return <AuditManager />
 }

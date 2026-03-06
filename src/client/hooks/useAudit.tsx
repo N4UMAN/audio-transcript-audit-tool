@@ -224,33 +224,6 @@ export function useAudit(): useAuditReturn {
         await history.redo();
     }, [history])
 
-
-    //  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-    // const checkSync = useCallback(async () => {
-    //     if (isChecking) return;
-    //     setIsChecking(true);
-
-    //     try {
-    //         await delay(500);
-    //         const cloudVersion = await server.getSheetVersion();
-
-    //         if (localVersion && cloudVersion !== localVersion) {
-    //             onInvalidate();
-    //         }
-    //     } finally {
-    //         setIsChecking(false);
-    //     }
-    // }, [localVersion, onInvalidate, isChecking])
-
-    // useEffect(() => {
-    //     const onFocus = () => checkSync();
-    //     window.addEventListener('focus', onFocus);
-
-    //     return () => window.removeEventListener('focus', onFocus);
-    // }, [checkSync]);
-
-
     return {
         status,
         auditData,
