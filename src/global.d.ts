@@ -49,19 +49,28 @@ declare global {
         versionAtTimeOfAudit: string
     }
 
+    // interface ServerFunctions {
+    //     getSheetContext(): Promise<string>;
+    //     getSheetVersion(): Promise<string>;
+    //     incrementSheetVersion(): Promise<string>
+    //     selectCell(cellAddress: string): Promise<void>;
+    //     applyFix(cellAddress: string, fixedValue: string): Promise<void>;
+    //     applyFixAll(corrections: AuditCorrections[]): Promise<void>;
+    //     highlightCells(corrections: AuditCorrections[]): Promise<void>;
+    //     removeCellHighlights(cellAddresses: string[]): Promise<void>;
+    //     getCachedAudit(): Promise<string | null>;
+    //     saveAuditToCache(data: AuditData | null, version?: string): Promise<void>;
+    //     applyUndo(cellAddress: string, originalValue: string): Promise<void>;
+    //     applyHistoryAction(items: AuditCorrections[], actionType: string, direction: string): Promise<void>
+    //     runSecureAudit(context: SheetContext): Promise<string>
+    // }
+
     interface ServerFunctions {
         getSheetContext(): Promise<string>;
-        getSheetVersion(): Promise<string>;
-        incrementSheetVersion(): Promise<string>
         selectCell(cellAddress: string): Promise<void>;
-        applyFix(cellAddress: string, fixedValue: string): Promise<void>;
-        applyFixAll(corrections: AuditCorrections[]): Promise<void>;
-        highlightCells(corrections: AuditCorrections[]): Promise<void>;
-        removeCellHighlights(cellAddresses: string[]): Promise<void>;
+        runSecureAudit(context: SheetContext): Promise<string>;
         getCachedAudit(): Promise<string | null>;
-        saveAuditToCache(data: AuditData | null, version?: string): Promise<void>;
-        applyUndo(cellAddress: string, originalValue: string): Promise<void>;
-        applyHistoryAction(items: AuditCorrections[], actionType: string, direction: string): Promise<void>
-        runSecureAudit(context: SheetContext): Promise<string>
+        dispatchAction(items: AuditCorrections[], type: string, direction: 'undo' | 'redo'): Promise<{ success: boolean; newVersion: string }>;
+        resetAudit(): Promise<void>;
     }
 }

@@ -12,6 +12,7 @@ export default defineConfig({
     viteSingleFile(),
   ],
   build: {
-    outDir: "dist"
+    outDir: "dist",
+    minify: false
   },
 })
