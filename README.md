@@ -7,17 +7,25 @@ A Google Sheets plugin for validating audio transcripts against internal formatt
 
 Audit team works directly inside Google Sheets. Each row is a transcript segment with fields like speaker, timestamps, language, accent, emotions, and the transcript text itself. Over time, inconsistencies creep in and working through each sheet is very time consuming.
 
-This plugin adds an **Audit** menu to the sheet. Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation engine and returns a list of flagged cells with suggested fixes.
+This plugin adds an **Audit** menu to the sheet.
 
 <p align="center">
 <img width="480" alt="image (13)" src="https://github.com/user-attachments/assets/b53f04dc-5408-400d-bf4f-0190151a2afa" />
 </p>
+<br>
+Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation engine and returns a list of flagged cells with suggested fixes.
+<p align="center">
+<img width="256" height="1208" alt="Screenshot 2026-03-06 220305" src="https://github.com/user-attachments/assets/c2c814d7-8af5-435c-a2c7-6fa520836ad2" />
+</p> 
+<br>
 
 Results appear in a sidebar where issues can be reviewed, fixed individually or all at once, ignored, and undone/redone.
 
 <p align="center">
-<img width="512" alt="Screenshot 2026-03-06 220356" src="https://github.com/user-attachments/assets/a5d4e32c-2a42-4b05-a4a2-a2af42f6132b" /> 
+    <img width="512" height="1056" alt="Screenshot 2026-03-06 220356" src="https://github.com/user-attachments/assets/a210b2f9-5b60-47e1-bd5d-f3e87d1545d9" />
 </p>
+<br><br><br>
+
 
 
 ## Why it exists
@@ -26,14 +34,14 @@ The original approach used an LLM with RAG over the company's guidelines. It was
 
 Replaced with a deterministic regex engine that's fast, consistent, and fully auditable. The backend lives separately so the validation logic stayed private from the company.
 
-
+<br><br>
 ## Stack
 
 **Client** — React sidebar running inside Google Sheets via Google Apps Script. Compiled to a single HTML file with Vite and deployed via clasp. TypeScript throughout.
 
 **Server** — FastAPI. Exposes a single `/audit` endpoint. Accepts sheet context, runs validation, returns corrections. Protected by an API key.
 
-
+<br><br>
 ## Architecture
 
 ```
