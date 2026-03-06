@@ -3,7 +3,7 @@ from app.config import settings
 import json
 from .utils import validate_api_key
 from .schema import AuditPayload, AuditResponse
-from .services.deterministic_parser import run_deterministic_audit
+from .engine.deterministic_parser import run_deterministic_audit
 import time
 router = APIRouter(dependencies=[Depends(validate_api_key)])
 
