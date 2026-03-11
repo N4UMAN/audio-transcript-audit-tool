@@ -1,6 +1,7 @@
+
 # audio-transcript-audit-tool
 
-A Google Sheets plugin for validating audio transcripts against internal formatting and style guidelines. Built as a freelance tool for a transcription company.
+A Google Sheets plugin for validating audio transcripts against internal formatting and style guidelines. Built as a freelance tool for a software company.
 
 
 ## What it does
@@ -13,7 +14,8 @@ This plugin adds an **Audit** menu to the sheet.
 <img width="480" alt="image (13)" src="https://github.com/user-attachments/assets/b53f04dc-5408-400d-bf4f-0190151a2afa" />
 </p>
 <br>
-Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation engine and returns a list of flagged cells with suggested fixes.
+Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation system and returns a list of flagged cells with suggested fixes.
+<br>
 <p align="center">
 <img width="256" height="1208" alt="Screenshot 2026-03-06 220305" src="https://github.com/user-attachments/assets/c2c814d7-8af5-435c-a2c7-6fa520836ad2" />
 </p> 
@@ -26,15 +28,6 @@ Results appear in a sidebar where issues can be reviewed, fixed individually or 
 </p>
 <br><br><br>
 
-
-
-## Why it exists
-
-The original approach used an LLM with RAG over the company's guidelines. It was slow, expensive, and hallucinated fixes — not acceptable for a functioning tool in a corporate environment.
-
-Replaced with a deterministic regex engine that's fast, consistent, and fully auditable. The backend lives separately so the validation logic stayed private from the company.
-
-<br><br>
 ## Stack
 
 **Client** — React sidebar running inside Google Sheets via Google Apps Script. Compiled to a single HTML file with Vite and deployed via clasp. TypeScript throughout.
@@ -105,12 +98,11 @@ audio-transcript-audit-tool/
 
 **GAS as the orchestrator** — Early version had React managing versioning, cache writes, and highlight state across multiple sequential GAS calls. Reworked so GAS handles all of that atomically inside `dispatchAction` with a script lock. React only manages UI state.
 
-**Deterministic validation over LLM** — The problem is well-defined enough that regex handles it better. Every rule is explicit, testable, and fast. No hallucinations.
+**Deterministic validation with Regex** — The problem is well-defined enough that regex handles it better. Every rule is explicit, testable, and fast.
 
 **Single-file client build** — `vite-plugin-singlefile` inlines all JS/CSS into one HTML file. Required for GAS `HtmlService` which can't load external assets.
 
 **Versioning** — Every sheet mutation increments a version stored in a hidden internal sheet. Cached audit results carry the version they were generated against. On load, if versions don't match, the cache is discarded and the user is prompted to re-audit.
-
 
 ## Note
 
