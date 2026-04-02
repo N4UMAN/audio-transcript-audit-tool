@@ -1,111 +1,211 @@
+# Audio Transcript Audit Tool
 
-# audio-transcript-audit-tool
+> A Google Sheets plugin for validating audio transcripts against internal formatting and style guidelines. Built as a freelance tool for a transcription company.
 
-A Google Sheets plugin for validating audio transcripts against internal formatting and style guidelines. Built as a freelance tool for a software company.
+---
 
+## What Problem Does This Solve?
 
-## What it does
+Transcription audit teams work directly inside Google Sheets. Each row is a transcript segment carrying fields like speaker, timestamps, language, accent, emotion tags, and the transcript text itself.
 
-Audit team works directly inside Google Sheets. Each row is a transcript segment with fields like speaker, timestamps, language, accent, emotions, and the transcript text itself. Over time, inconsistencies creep in and working through each sheet is very time consuming.
+At scale, inconsistencies are inevitable — a misformatted timestamp here, a style violation there. Catching them manually is slow, error-prone, and pulls auditors away from higher-value review work.
 
-This plugin adds an **Audit** menu to the sheet.
+This tool plugs directly into the spreadsheet they're already working in. One click from an **Audit** menu triggers a validation run. Flagged issues surface in a sidebar. Each one can be fixed individually, fixed all at once, ignored, or undone — without ever leaving the sheet.
 
-<p align="center">
-<img width="480" alt="image (13)" src="https://github.com/user-attachments/assets/b53f04dc-5408-400d-bf4f-0190151a2afa" />
-</p>
-<br>
-Running an audit sends the sheet data to a FastAPI backend, which runs it through a regex-based validation system and returns a list of flagged cells with suggested fixes.
-<br>
-<p align="center">
-<img width="256" height="1208" alt="Screenshot 2026-03-06 220305" src="https://github.com/user-attachments/assets/c2c814d7-8af5-435c-a2c7-6fa520836ad2" />
-</p> 
-<br>
+---
 
-Results appear in a sidebar where issues can be reviewed, fixed individually or all at once, ignored, and undone/redone.
+## Architecture Overview
 
-<p align="center">
-    <img width="512" height="1056" alt="Screenshot 2026-03-06 220356" src="https://github.com/user-attachments/assets/a210b2f9-5b60-47e1-bd5d-f3e87d1545d9" />
-</p>
-<br><br><br>
+```mermaid
+graph TD
+    subgraph GS["Google Sheets"]
+        MENU["Audit Menu\n(onOpen trigger)"]
+        SIDEBAR["React Sidebar\n(HtmlService)"]
+    end
+
+    subgraph GAS["Google Apps Script Layer"]
+        UI["ui.ts\nSidebar bootstrap"]
+        API["api.ts\nPublic entry points\ngoogle.script.run"]
+        ORCH["orchestrator.ts\nBusiness logic\nVersioning · Locking\nAtomic transactions"]
+        SVC["services.ts\nSheet R/W\nHighlighting\nCache ops"]
+        HIDDEN["Hidden Internal Sheet\nVersion store\nAudit cache"]
+    end
+
+    subgraph BE["FastAPI Backend"]
+        ROUTE["/audit endpoint"]
+        PARSER["deterministic_parser.py\nRegex validation engine"]
+        SCHEMA["schema.py\nRequest · Response models"]
+        CFG["config.py\nAPI key auth"]
+    end
+
+    MENU --> UI
+    UI --> SIDEBAR
+    SIDEBAR -->|"google.script.run (gas-bridge)"| API
+    API --> ORCH
+    ORCH --> SVC
+    SVC --> HIDDEN
+    ORCH -->|"HTTP + API key"| ROUTE
+    ROUTE --> PARSER
+    PARSER --> SCHEMA
+    SCHEMA -->|"Flagged cells + suggestions"| ROUTE
+    ROUTE -->|"JSON response"| ORCH
+```
+
+---
+
+## Data Flow — An Audit Run
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Sidebar as React Sidebar
+    participant Bridge as gas-bridge
+    participant Orch as GAS Orchestrator
+    participant Svc as GAS Services
+    participant Cache as Hidden Sheet (Cache)
+    participant API as FastAPI /audit
+
+    User->>Sidebar: Click "Run Audit"
+    Sidebar->>Bridge: triggerAudit()
+    Bridge->>Orch: google.script.run → runAudit()
+    Orch->>Svc: acquireScriptLock()
+    Orch->>Cache: check version match
+    alt Cache hit (version match)
+        Cache-->>Orch: return cached results
+    else Cache miss or stale
+        Orch->>Svc: readSheetData()
+        Svc-->>Orch: rows[]
+        Orch->>API: POST /audit {rows, apiKey}
+        API-->>Orch: {flags: [{cell, issue, suggestion}]}
+        Orch->>Cache: write results + increment version
+    end
+    Orch->>Svc: highlightFlaggedCells()
+    Orch-->>Sidebar: return AuditResult
+    Sidebar->>User: render issue list in sidebar
+
+    User->>Sidebar: Apply fix
+    Sidebar->>Bridge: applyFix(cellRef, value)
+    Bridge->>Orch: dispatchAction()
+    Orch->>Svc: acquireScriptLock()
+    Orch->>Svc: writeCell() + clearHighlight()
+    Orch->>Cache: increment version
+    Orch-->>Sidebar: updated state
+```
+
+---
 
 ## Stack
 
-**Client** — React sidebar running inside Google Sheets via Google Apps Script. Compiled to a single HTML file with Vite and deployed via clasp. TypeScript throughout.
+| Layer | Technology | Notes |
+|---|---|---|
+| **Spreadsheet host** | Google Sheets | Where auditors live day-to-day |
+| **Plugin runtime** | Google Apps Script | Sidebar injection, sheet R/W, script locks |
+| **UI framework** | React + TypeScript | Compiled to a single HTML file via `vite-plugin-singlefile` |
+| **Build tool** | Vite + clasp | `clasp push` deploys to GAS |
+| **Backend** | FastAPI (Python) | Single `/audit` endpoint, API key protected |
+| **Validation** | Regex engine | Deterministic, rule-based, fully testable |
 
-**Server** — FastAPI. Exposes a single `/audit` endpoint. Accepts sheet context, runs validation, returns corrections. Protected by an API key.
+---
 
-<br><br>
-## Architecture
-
-```
-Google Sheets
-└── GAS (Apps Script)
-    ├── Services layer     — raw sheet operations (read, write, highlight, cache)
-    ├── Orchestrator       — business logic, versioning, atomic transactions
-    └── API surface        — thin top-level wrappers callable by google.script.run
-
-React Sidebar (injected via GAS HtmlService)
-├── useAudit               — main state machine
-├── useHistory             — undo/redo stack
-└── gas-bridge             — Proxy-based typed bridge to google.script.run
-```
-
-React is the UI layer only. All sheet mutations go through the GAS orchestrator which handles locking, versioning, and cache invalidation atomically.
-
-Version tracking prevents stale audit data from being applied to a sheet that was manually edited since the last audit.
-
-
-## Project structure
+## Project Structure
 
 ```
 audio-transcript-audit-tool/
 │
 ├── client/                          # React + Google Apps Script
 │   ├── src/
-│   │   ├── assets/
 │   │   ├── client/                  # React sidebar
-│   │   │   ├── components/
+│   │   │   ├── components/          # UI components
 │   │   │   └── hooks/
+│   │   │       ├── useAudit.ts      # Main state machine
+│   │   │       └── useHistory.ts    # Undo/redo stack
 │   │   ├── server/                  # Google Apps Script
 │   │   │   ├── services.ts          # Sheet + cache operations
 │   │   │   ├── orchestrator.ts      # Business logic layer
 │   │   │   ├── api.ts               # Public GAS entry points
 │   │   │   └── ui.ts                # onOpen, sidebar bootstrap
 │   │   └── global.d.ts              # Shared types
-│   ├── index.html
-│   ├── package.json
 │   ├── vite.config.ts
-│   ├── tsconfig.json
-│   ├── tsconfig.app.json
-│   └── tsconfig.node.json
+│   └── package.json
 │
 └── server/                          # FastAPI backend
-    ├── app/
-    │   ├── engine/                  # Regex validation core
-    │   │   ├── __init__.py
-    │   │   └── deterministic_parser.py
-    │   ├── __init__.py
-    │   ├── config.py
-    │   ├── main.py
-    │   ├── routes.py
-    │   ├── schema.py
-    │   └── utils.py
-    └── requirements.txt
+    └── app/
+        ├── engine/
+        │   └── deterministic_parser.py   # Regex validation core
+        ├── main.py
+        ├── routes.py
+        ├── schema.py
+        ├── config.py
+        └── utils.py
 ```
 
+---
 
-## Notable decisions
+## Key Design Decisions
 
-**GAS as the orchestrator** — Early version had React managing versioning, cache writes, and highlight state across multiple sequential GAS calls. Reworked so GAS handles all of that atomically inside `dispatchAction` with a script lock. React only manages UI state.
+### GAS as the Orchestrator
 
-**Deterministic validation with Regex** — The problem is well-defined enough that regex handles it better. Every rule is explicit, testable, and fast.
+An early version had React coordinating versioning, cache writes, and highlight state across multiple sequential `google.script.run` calls. The problem: each call is async and GAS doesn't queue them — race conditions and partial state updates were guaranteed.
 
-**Single-file client build** — `vite-plugin-singlefile` inlines all JS/CSS into one HTML file. Required for GAS `HtmlService` which can't load external assets.
+The rework pushed all of that into a single `dispatchAction` function on the GAS side, wrapped in a script lock. React now only manages UI state. The sheet is the source of truth, and every mutation that touches it is atomic.
 
-**Versioning** — Every sheet mutation increments a version stored in a hidden internal sheet. Cached audit results carry the version they were generated against. On load, if versions don't match, the cache is discarded and the user is prompted to re-audit.
+### Deterministic Validation
 
-## Note
+The validation domain is well-defined: every rule in a transcription style guide can be expressed as a pattern. Regex handles this better than a probabilistic model — it's explicit, deterministic, fast, and every rule is independently testable. No inference, no surprises.
 
-This project was discontinued before reaching production. The repo exists as a reference and portfolio piece.
+### Single-File Client Build
 
-Running it requires a configured Google Sheet, clasp credentials, and Script Properties (`API_BASE_URL`, `API_KEY`) which are not included.
+`vite-plugin-singlefile` inlines all JavaScript and CSS into a single HTML file at build time. This is a hard requirement for GAS `HtmlService`, which cannot load external assets or make requests to external origins from the injected sidebar.
+
+### Version Tracking
+
+Every sheet mutation increments a version number stored in a hidden internal sheet. Audit results are cached alongside the version they were generated against. On sidebar load, if the current sheet version doesn't match the cached audit version, the cache is discarded and the user is prompted to re-run the audit. This prevents stale suggestions from being applied to a sheet that was edited after the last audit.
+
+---
+
+## Sidebar Capability Map
+
+```mermaid
+graph LR
+    A[Audit Results Sidebar] --> B[Review individual issues]
+    A --> C[Jump to flagged cell]
+    A --> D[Apply single fix]
+    A --> E[Apply all fixes]
+    A --> F[Ignore an issue]
+    A --> G[Undo / Redo]
+    D --> H[Version increments]
+    E --> H
+    G --> H
+    H --> I[Cache invalidated if sheet\nwas edited externally]
+```
+
+---
+
+## Setup (Reference Only)
+
+This project requires:
+
+1. A configured Google Sheet with the expected column schema
+2. [clasp](https://github.com/google/clasp) credentials linked to your GAS project
+3. Script Properties set in the GAS editor:
+   - `API_BASE_URL` — URL of the running FastAPI server
+   - `API_KEY` — shared secret for the `/audit` endpoint
+
+```bash
+# Install dependencies
+cd client && npm install
+
+# Build and push to GAS
+npm run build
+clasp push
+```
+
+```bash
+# Run the FastAPI server
+cd server
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+> **Note:** This project was discontinued before reaching production. The repo exists as a reference and portfolio piece. Credentials and sheet configuration are not included.
+
